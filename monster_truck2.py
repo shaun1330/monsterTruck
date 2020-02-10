@@ -728,7 +728,7 @@ class InvoiceWindow(tk.Tk):
 
         self.members = self.databaseConnection.query("select "
                                                      "concat_ws(' ',member_fname, member_lname) as n, "
-                                                     "member_no from members where member_no != 9999")
+                                                     "member_no from members where member_no != 1")
         self.items_price_var = tk.StringVar(self)
         self.item_qty_var = tk.StringVar(self)
         member_names = [m[0] for m in self.members]
