@@ -1,4 +1,5 @@
 import tkinter as tk
+import logging
 from tkinter.ttk import Treeview, Progressbar, Style
 from invoice_generator_class import InvoiceGenerator
 from receipt_generator_class import ReceiptGenerator
@@ -22,6 +23,7 @@ from subprocess import Popen
 class App(tk.Tk):
     def __init__(self, connection, email_address, email_password, *args, **kwargs):
         tk.Tk.__init__(self, *args, **kwargs)
+        logging.basicConfig(filename='./config/log_file.txt', format='%(asctime)s - %(name)s - %(levelname)s - %(message)s\n\n')
         s = Style()
         s.theme_use('clam')
         self.configure(background='black')
@@ -454,7 +456,7 @@ class Members(tk.Frame):
         self.main_menu_button = tk.Button(self, text='Main Menu', command=lambda: controller.show_frame(MainMenu))
         self.main_menu_button['font'] = button_font
         self.main_menu_button.grid(row=2, column=0, sticky='N', pady=5)
-        
+
         self.export_button = tk.Button(self, text='Export Members Info', command=self.exporter)
         self.export_button['font'] = button_font
         self.export_button.grid(row=2, column=2, sticky='N', pady=5)
@@ -1121,30 +1123,33 @@ class NewMemberPage(tk.Tk):
             error_str = ''.join(errors)
 
         if postcode_error and home_phone_error and mobile_error and status_error:
-            self.dbconnection.insert(f'insert'
-                                     f' into members ( '
-                                     f'member_fname, '
-                                     f'member_lname, '
-                                     f'partner_name, '
-                                     f'street_address, '
-                                     f'suburb, state, '
-                                     f'postcode, '
-                                     f'home_phone, '
-                                     f'mobile_phone, '
-                                     f'email, '
-                                     f'member_status) '
-                                     f'values ( '
-                                     f'"{fname}", '
-                                     f'"{lname}", '
-                                     f'"{partner}", '
-                                     f'"{address}", '
-                                     f'"{suburb}", '
-                                     f'"{state}", '
-                                     f'"{postcode}", '
-                                     f'"{home_phone}", '
-                                     f'"{mobile}", '
-                                     f'"{email}", '
-                                     f'"{status}")')
+            try:
+                self.dbconnection.insert(f'insert'
+                                         f' into members ( '
+                                         f'member_fname, '
+                                         f'member_lname, '
+                                         f'partner_name, '
+                                         f'street_address, '
+                                         f'suburb, state, '
+                                         f'postcode, '
+                                         f'home_phone, '
+                                         f'mobile_phone, '
+                                         f'email, '
+                                         f'member_status) '
+                                         f'values ( '
+                                         f'"{fname}", '
+                                         f'"{lname}", '
+                                         f'"{partner}", '
+                                         f'"{address}", '
+                                         f'"{suburb}", '
+                                         f'"{state}", '
+                                         f'"{postcode}", '
+                                         f'"{home_phone}", '
+                                         f'"{mobile}", '
+                                         f'"{email}", '
+                                         f'"{status}")')
+            except Exception as e:
+                logging.exception("Exception")
             self.dbconnection.commit()
             self.member_page.update_window()
             self.destroy()
