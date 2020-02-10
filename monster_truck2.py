@@ -536,9 +536,6 @@ class Members(tk.Frame):
 
         for row in members_table:
             self.table.insert('', 'end', text=row[0], values=row[1:])
-        # print(self.membersTable[-1], self.c)
-        # self.c += 1
-        # self.after(3000, self.update_window) # ask mainloop to update every 3000ms
 
 
 class EditMember(tk.Tk):
