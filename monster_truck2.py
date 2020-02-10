@@ -1839,7 +1839,7 @@ class ReceiptCashOrTransfer(tk.Tk):
                                              f'from '
                                              f'invoice '
                                              f'join '
-                                             f'member '
+                                             f'members '
                                              f'on '
                                              f'invoice.member_no = members.member_no '
                                              f'where '
