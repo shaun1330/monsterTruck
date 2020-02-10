@@ -943,46 +943,67 @@ class InvoiceWindow(tk.Tk):
             invoice_copy.cityStatePostCode(member_details[1], member_details[3], member_details[2])
             invoice_copy.BankDetails(bank_details[0], bank_details[1], bank_details[2])
             invoice_copy.invoice_line(item_codes, item_descs, item_prices, item_qtys, subtotals)
-            self.databaseConnection.insert(f'insert into invoice '
-                                           f'(invoice_no, '
-                                           f'invoice_date, '
-                                           f'invoice_duedate, '
-                                           f'invoice_total, '
-                                           f'member_no, '
-                                           f'invoice_sent) '
-                                           f'values '
-                                           f'({self.current_invoice_no}, '
-                                           f'now(), '
-                                           f'str_to_date({due_date},"%d/%m/%Y"), '
-                                           f'{invoice_total}, '
-                                           f'{member_no}, '
-                                           f'"No")')
-            self.databaseConnection.commit()
+            try:
+                self.databaseConnection.insert(f'insert into invoice '
+                                               f'(invoice_no, '
+                                               f'invoice_date, '
+                                               f'invoice_duedate, '
+                                               f'invoice_total, '
+                                               f'member_no, '
+                                               f'invoice_sent) '
+                                               f'values '
+                                               f'({self.current_invoice_no}, '
+                                               f'now(), '
+                                               f'str_to_date({due_date},"%d/%m/%Y"), '
+                                               f'{invoice_total}, '
+                                               f'{member_no}, '
+                                               f'"No")')
+            except Exception as e:
+                print('Error Logged')
+                string = (f'insert into invoice '
+                                               f'(invoice_no, '
+                                               f'invoice_date, '
+                                               f'invoice_duedate, '
+                                               f'invoice_total, '
+                                               f'member_no, '
+                                               f'invoice_sent) '
+                                               f'values '
+                                               f'({self.current_invoice_no}, '
+                                               f'now(), '
+                                               f'str_to_date({due_date},"%d/%m/%Y"), '
+                                               f'{invoice_total}, '
+                                               f'{member_no}, '
+                                               f'"No")')
+                print(string)
+                logging.exception(f"Error with Invoice\nInsert String: {string}")
+                messagebox.showwarning('Unknown Error',
+                                       f'An unknown error occurred and has been logged. Report to developer.')
+            else:
+                self.databaseConnection.commit()
 
-            for line in self.item_prices:
-                item_code = line[0]
-                item_price = line[2]
-                item_qty = line[3]
-                self.databaseConnection.insert(f'insert into invoice_line '
-                                               f'(invoice_no, item_code, item_qty, invoice_item_value) values '
-                                               f'({self.current_invoice_no}, {item_code}, {item_qty}, {item_price})')
-            self.databaseConnection.commit()
-            invoice_copy.save('.\\invoice_pdfs')
-            print('Invoice created')
-            self.main_menu.update_tables()
-            self.destroy()
-            messagebox.showinfo('Invoice Created', 'Invoice successfully created', parent=self.main_menu)
-
-            # self.item_prices = []
-            # self.member_var.set('Select Member')
-            # self.invoice_total_var.set('$0.00')
-            # self.due_date.set('')
-            # self.invoice_table.delete(*self.invoice_table.get_children())
-            # self.member_var.set('Select Member')
-
-
-    # def submit_invoice_command(self):
-    #     print(self.duedate.get())
+                for line in self.item_prices:
+                    item_code = line[0]
+                    item_price = line[2]
+                    item_qty = line[3]
+                    try:
+                        self.databaseConnection.insert(f'insert into invoice_line '
+                                                   f'(invoice_no, item_code, item_qty, invoice_item_value) values '
+                                                   f'({self.current_invoice_no}, {item_code}, {item_qty}, {item_price})')
+                    except Exception as e:
+                        print('Error Logged')
+                        string = (f'insert into invoice_line '
+                                                   f'(invoice_no, item_code, item_qty, invoice_item_value) values '
+                                                   f'({self.current_invoice_no}, {item_code}, {item_qty}, {item_price})')
+                        print(string)
+                        logging.exception(f"Error with Invoice\nInsert String: {string}")
+                        messagebox.showwarning('Unknown Error',
+                                               f'An unknown error occurred and has been logged. Report to developer.')
+                self.databaseConnection.commit()
+                invoice_copy.save('.\\invoice_pdfs')
+                print('Invoice created')
+                self.main_menu.update_tables()
+                self.destroy()
+                messagebox.showinfo('Invoice Created', 'Invoice successfully created', parent=self.main_menu)
 
 
 class NewMemberPage(tk.Tk):
@@ -1530,8 +1551,6 @@ class HistoryWindow(tk.Tk):
             self.delete_button.grid(row=7, columnspan=3)
 
             self.attributes("-topmost", True)
-
-
 
     def delete_transfer_record(self):
         delete_yesno = messagebox.askyesno('Delete Transfer', 'Are you sure you want to delete this transfer record?', parent=self)
