@@ -532,7 +532,7 @@ class Members(tk.Frame):
                                                       'mobile_phone, '
                                                       'email, '
                                                       'member_status '
-                                                      'from members where member_no != 9999')
+                                                      'from members where member_no != 1')
 
         for row in members_table:
             self.table.insert('', 'end', text=row[0], values=row[1:])
