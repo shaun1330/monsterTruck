@@ -23,7 +23,6 @@ from subprocess import Popen
 class App(tk.Tk):
     def __init__(self, connection, email_address, email_password, *args, **kwargs):
         tk.Tk.__init__(self, *args, **kwargs)
-        logging.basicConfig(filename='./config/log_file.txt', format='%(asctime)s - %(name)s - %(levelname)s - %(message)s\n\n')
         s = Style()
         s.theme_use('clam')
         self.configure(background='black')
@@ -681,7 +680,7 @@ class EditMember(tk.Tk):
     def editMemberSubmit(self):
         fname = self.fname_var.get()
         lname = self.lname_var.get()
-        parnter = self.partner_var.get()
+        partner = self.partner_var.get()
         address = self.address_var.get()
         suburb = self.suburb_var.get()
         state = self.state_var.get()
@@ -691,11 +690,12 @@ class EditMember(tk.Tk):
         email = self.email_var.get()
         status = self.member_status_var.get()
 
-        self.databaseConnection.insert(f'update members'
+        try:
+            self.databaseConnection.insert(f'update members'
                                  f' set '
                                  f'member_fname = "{fname}", '
                                  f'member_lname = "{lname}", '
-                                 f'partner_name = "{parnter}", '
+                                 f'partner_name = "{partner}", '
                                  f'street_address = "{address}", '
                                  f'suburb = "{suburb}", '
                                  f'state = "{state}", '
@@ -706,9 +706,30 @@ class EditMember(tk.Tk):
                                  f'member_status = "{status}" '
                                  f'where '
                                  f'member_no = {self.member_no}')
-        self.databaseConnection.commit()
-        self.member_page.update_window()
-        self.destroy()
+        except Exception as e:
+            print('Error Logged')
+            string = (f'update members'
+            f' set '
+            f'member_fname = "{fname}", '
+            f'member_lname = "{lname}", '
+            f'partner_name = "{partner}", '
+            f'street_address = "{address}", '
+            f'suburb = "{suburb}", '
+            f'state = "{state}", '
+            f'postcode = "{postcode}", '
+            f'home_phone = "{home_phone}", '
+            f'mobile_phone = "{mobile}", '
+            f'email = "{email}", '
+            f'member_status = "{status}" '
+            f'where '
+            f'member_no = {self.member_no}')
+            print(string)
+            logging.exception(f"Error with Edit Member\nInsert String: {string}")
+            messagebox.showwarning('Unknown Error', f'An unknown error occurred and has been logged. Report to developer.')
+        else:
+            self.databaseConnection.commit()
+            self.member_page.update_window()
+            self.destroy()
 
 
 class InvoiceWindow(tk.Tk):
@@ -1149,10 +1170,37 @@ class NewMemberPage(tk.Tk):
                                          f'"{email}", '
                                          f'"{status}")')
             except Exception as e:
-                logging.exception("Exception")
-            self.dbconnection.commit()
-            self.member_page.update_window()
-            self.destroy()
+                print('Error Logged')
+                string = (f'insert'
+                                         f' into members ( '
+                                         f'member_fname, '
+                                         f'member_lname, '
+                                         f'partner_name, '
+                                         f'street_address, '
+                                         f'suburb, state, '
+                                         f'postcode, '
+                                         f'home_phone, '
+                                         f'mobile_phone, '
+                                         f'email, '
+                                         f'member_status) '
+                                         f'values ( '
+                                         f'"{fname}", '
+                                         f'"{lname}", '
+                                         f'"{partner}", '
+                                         f'"{address}", '
+                                         f'"{suburb}", '
+                                         f'"{state}", '
+                                         f'"{postcode}", '
+                                         f'"{home_phone}", '
+                                         f'"{mobile}", '
+                                         f'"{email}", '
+                                         f'"{status}")')
+                logging.exception(f"Error with New Member \nInsert String: {string}")
+                messagebox.showwarning('Unknown Error', f'An unknown error occurred and has been logged. Report to developer.')
+            else:
+                self.dbconnection.commit()
+                self.member_page.update_window()
+                self.destroy()
         else:
             messagebox.showwarning('Format Error', f'The following fields need to be numeric:\n\n{error_str}')
 
@@ -3098,7 +3146,8 @@ try:
 except FileNotFoundError:
     messagebox.showerror('Settings File Error', 'A error occurred while reading settings.txt')
 else:
-
+    logging.basicConfig(filename='./config/log_file.txt',
+                        format='-' * 60 + '\n%(asctime)s - %(name)s - %(levelname)s - %(message)s')
     settings = settings.read()
     print(settings)
     settings = settings.splitlines()
