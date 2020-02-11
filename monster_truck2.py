@@ -2375,7 +2375,6 @@ class AutoInvoicing(tk.Tk):
                                                             'where '
                                                             'member_status = "ACTIVE";')
 
-
         self.current_invoice_no = self.databaseConnection.query('select max(invoice_no)+1 from invoice')
         self.current_invoice_no = self.current_invoice_no[0][0]
         self.bank_details = self.databaseConnection.query(f'select bank_name, bsb, account_no from bank_detail')
@@ -2564,7 +2563,6 @@ class CommitteeReport(tk.Frame):
         elif current_month == 12:
             self.current_month = 'December'
 
-
         balances_label = tk.Label(self, text='Reports', font='courier 40 bold')
         balances_label.grid(row=0, column=0,  columnspan=9, sticky='n')
 
@@ -2573,13 +2571,6 @@ class CommitteeReport(tk.Frame):
                                                 f'Bank Balance: ${self.balances[0][1]}',
                                            font='courier 20 bold')
         self.cash_balance_label.grid(row=3, column=1, columnspan=3, sticky='n')
-
-        # self.current_month_radio = tk.Radiobutton(self, text='Current Month', command=lambda: self.money_in_out(0))
-        # self.current_month_radio.grid(row=2, column=6)
-        # self.current_financial_radio = tk.Radiobutton(self, text='Current FY', command=lambda: self.money_in_out(1))
-        # self.current_financial_radio.grid(row=2, column=7)
-        # self.all_time_radio = tk.Radiobutton(self, text='All Time', command=lambda: self.money_in_out(2))
-        # self.all_time_radio.grid(row=2, column=8)
 
         self.month_in = self.databaseConnection.query('select '
                                                       'sum(cash_amount)+sum(transfer_amount) '
@@ -2606,7 +2597,7 @@ class CommitteeReport(tk.Frame):
         if datetime.today() > datetime(current_year, 7, 1):
             financial_year_start_date = datetime(current_year, 7, 1).strftime('%Y-%m-%d')
         else:
-            financial_year_start_date = datetime(current_year -1, 7, 1).strftime('%Y-%m-%d')
+            financial_year_start_date = datetime(current_year - 1, 7, 1).strftime('%Y-%m-%d')
         self.year_in = self.databaseConnection.query('select '
                                                      'sum(cash_amount)+sum(transfer_amount) '
                                                      'from '
