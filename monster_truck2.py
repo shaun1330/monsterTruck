@@ -308,7 +308,7 @@ class MainMenu(tk.Frame):
                                                  'bank_balance '
                                                  'from payment_history '
                                                  'where n != 30000 '
-                                                 'order by payment_datetime desc;')
+                                                 'order by payment_datetime desc, n desc;')
         for row in transaction_history:
             if row[0] > 30000 and row[0] < 40000:
                 self.history_table.insert('', 'end', text='Income', values=row)
@@ -1983,10 +1983,9 @@ class ExpenseWindow(tk.Tk):
         self.cash = self.expense_cash_var.get()
         self.transfer = self.expense_transfer_var.get()
 
-        if self.cash == '' and self.transfer == '':
+        if (self.cash == '' or int(self.cash) == 0) and (self.transfer == '' or int(self.transfer) == 0):
             messagebox.showerror('Missing Values', 'Cash and transfer values cannot be both zero', parent=self)
         else:
-
             if len(self.cash) == 0:
                 self.cash = 0
             elif match(r'^-?\d+\.?(\d+)?$', self.cash) is None:
@@ -2176,7 +2175,7 @@ class IncomeWindow(tk.Tk):
         self.cash = self.income_cash_var.get()
         self.transfer = self.income_transfer_var.get()
 
-        if self.cash == '' and self.transfer == '':
+        if (self.cash == '' or int(self.cash) == 0) and (self.transfer == '' or int(self.transfer) == 0):
             messagebox.showerror('Missing Values', 'Cash and transfer values cannot be both zero', parent=self)
         else:
 
