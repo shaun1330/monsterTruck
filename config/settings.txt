@@ -1,6 +1,0 @@
-shaunyb101@gmail.com
-Supercore_23_34_45
-root
-shaunsql
-127.0.0.1
-mydb
