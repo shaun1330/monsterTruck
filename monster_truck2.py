@@ -1,4 +1,5 @@
 import tkinter as tk
+import logging
 from tkinter.ttk import Treeview, Progressbar, Style
 from invoice_generator_class import InvoiceGenerator
 from receipt_generator_class import ReceiptGenerator
@@ -454,7 +455,7 @@ class Members(tk.Frame):
         self.main_menu_button = tk.Button(self, text='Main Menu', command=lambda: controller.show_frame(MainMenu))
         self.main_menu_button['font'] = button_font
         self.main_menu_button.grid(row=2, column=0, sticky='N', pady=5)
-        
+
         self.export_button = tk.Button(self, text='Export Members Info', command=self.exporter)
         self.export_button['font'] = button_font
         self.export_button.grid(row=2, column=2, sticky='N', pady=5)
@@ -679,7 +680,7 @@ class EditMember(tk.Tk):
     def editMemberSubmit(self):
         fname = self.fname_var.get()
         lname = self.lname_var.get()
-        parnter = self.partner_var.get()
+        partner = self.partner_var.get()
         address = self.address_var.get()
         suburb = self.suburb_var.get()
         state = self.state_var.get()
@@ -689,11 +690,12 @@ class EditMember(tk.Tk):
         email = self.email_var.get()
         status = self.member_status_var.get()
 
-        self.databaseConnection.insert(f'update members'
+        try:
+            self.databaseConnection.insert(f'update members'
                                  f' set '
                                  f'member_fname = "{fname}", '
                                  f'member_lname = "{lname}", '
-                                 f'partner_name = "{parnter}", '
+                                 f'partner_name = "{partner}", '
                                  f'street_address = "{address}", '
                                  f'suburb = "{suburb}", '
                                  f'state = "{state}", '
@@ -704,9 +706,30 @@ class EditMember(tk.Tk):
                                  f'member_status = "{status}" '
                                  f'where '
                                  f'member_no = {self.member_no}')
-        self.databaseConnection.commit()
-        self.member_page.update_window()
-        self.destroy()
+        except Exception as e:
+            print('Error Logged')
+            string = (f'update members'
+            f' set '
+            f'member_fname = "{fname}", '
+            f'member_lname = "{lname}", '
+            f'partner_name = "{partner}", '
+            f'street_address = "{address}", '
+            f'suburb = "{suburb}", '
+            f'state = "{state}", '
+            f'postcode = "{postcode}", '
+            f'home_phone = "{home_phone}", '
+            f'mobile_phone = "{mobile}", '
+            f'email = "{email}", '
+            f'member_status = "{status}" '
+            f'where '
+            f'member_no = {self.member_no}')
+            print(string)
+            logging.exception(f"Error with Edit Member\nInsert String: {string}")
+            messagebox.showwarning('Unknown Error', f'An unknown error occurred and has been logged. Report to developer.')
+        else:
+            self.databaseConnection.commit()
+            self.member_page.update_window()
+            self.destroy()
 
 
 class InvoiceWindow(tk.Tk):
@@ -920,46 +943,67 @@ class InvoiceWindow(tk.Tk):
             invoice_copy.cityStatePostCode(member_details[1], member_details[3], member_details[2])
             invoice_copy.BankDetails(bank_details[0], bank_details[1], bank_details[2])
             invoice_copy.invoice_line(item_codes, item_descs, item_prices, item_qtys, subtotals)
-            self.databaseConnection.insert(f'insert into invoice '
-                                           f'(invoice_no, '
-                                           f'invoice_date, '
-                                           f'invoice_duedate, '
-                                           f'invoice_total, '
-                                           f'member_no, '
-                                           f'invoice_sent) '
-                                           f'values '
-                                           f'({self.current_invoice_no}, '
-                                           f'now(), '
-                                           f'str_to_date({due_date},"%d/%m/%Y"), '
-                                           f'{invoice_total}, '
-                                           f'{member_no}, '
-                                           f'"No")')
-            self.databaseConnection.commit()
+            try:
+                self.databaseConnection.insert(f'insert into invoice '
+                                               f'(invoice_no, '
+                                               f'invoice_date, '
+                                               f'invoice_duedate, '
+                                               f'invoice_total, '
+                                               f'member_no, '
+                                               f'invoice_sent) '
+                                               f'values '
+                                               f'({self.current_invoice_no}, '
+                                               f'now(), '
+                                               f'str_to_date({due_date},"%d/%m/%Y"), '
+                                               f'{invoice_total}, '
+                                               f'{member_no}, '
+                                               f'"No")')
+            except Exception as e:
+                print('Error Logged')
+                string = (f'insert into invoice '
+                                               f'(invoice_no, '
+                                               f'invoice_date, '
+                                               f'invoice_duedate, '
+                                               f'invoice_total, '
+                                               f'member_no, '
+                                               f'invoice_sent) '
+                                               f'values '
+                                               f'({self.current_invoice_no}, '
+                                               f'now(), '
+                                               f'str_to_date({due_date},"%d/%m/%Y"), '
+                                               f'{invoice_total}, '
+                                               f'{member_no}, '
+                                               f'"No")')
+                print(string)
+                logging.exception(f"Error with Invoice\nInsert String: {string}")
+                messagebox.showwarning('Unknown Error',
+                                       f'An unknown error occurred and has been logged. Report to developer.')
+            else:
+                self.databaseConnection.commit()
 
-            for line in self.item_prices:
-                item_code = line[0]
-                item_price = line[2]
-                item_qty = line[3]
-                self.databaseConnection.insert(f'insert into invoice_line '
-                                               f'(invoice_no, item_code, item_qty, invoice_item_value) values '
-                                               f'({self.current_invoice_no}, {item_code}, {item_qty}, {item_price})')
-            self.databaseConnection.commit()
-            invoice_copy.save('.\\invoice_pdfs')
-            print('Invoice created')
-            self.main_menu.update_tables()
-            self.destroy()
-            messagebox.showinfo('Invoice Created', 'Invoice successfully created', parent=self.main_menu)
-
-            # self.item_prices = []
-            # self.member_var.set('Select Member')
-            # self.invoice_total_var.set('$0.00')
-            # self.due_date.set('')
-            # self.invoice_table.delete(*self.invoice_table.get_children())
-            # self.member_var.set('Select Member')
-
-
-    # def submit_invoice_command(self):
-    #     print(self.duedate.get())
+                for line in self.item_prices:
+                    item_code = line[0]
+                    item_price = line[2]
+                    item_qty = line[3]
+                    try:
+                        self.databaseConnection.insert(f'insert into invoice_line '
+                                                   f'(invoice_no, item_code, item_qty, invoice_item_value) values '
+                                                   f'({self.current_invoice_no}, {item_code}, {item_qty}, {item_price})')
+                    except Exception as e:
+                        print('Error Logged')
+                        string = (f'insert into invoice_line '
+                                                   f'(invoice_no, item_code, item_qty, invoice_item_value) values '
+                                                   f'({self.current_invoice_no}, {item_code}, {item_qty}, {item_price})')
+                        print(string)
+                        logging.exception(f"Error with Invoice\nInsert String: {string}")
+                        messagebox.showwarning('Unknown Error',
+                                               f'An unknown error occurred and has been logged. Report to developer.')
+                self.databaseConnection.commit()
+                invoice_copy.save('.\\invoice_pdfs')
+                print('Invoice created')
+                self.main_menu.update_tables()
+                self.destroy()
+                messagebox.showinfo('Invoice Created', 'Invoice successfully created', parent=self.main_menu)
 
 
 class NewMemberPage(tk.Tk):
@@ -1121,33 +1165,63 @@ class NewMemberPage(tk.Tk):
             error_str = ''.join(errors)
 
         if postcode_error and home_phone_error and mobile_error and status_error:
-            self.dbconnection.insert(f'insert'
-                                     f' into members ( '
-                                     f'member_fname, '
-                                     f'member_lname, '
-                                     f'partner_name, '
-                                     f'street_address, '
-                                     f'suburb, state, '
-                                     f'postcode, '
-                                     f'home_phone, '
-                                     f'mobile_phone, '
-                                     f'email, '
-                                     f'member_status) '
-                                     f'values ( '
-                                     f'"{fname}", '
-                                     f'"{lname}", '
-                                     f'"{partner}", '
-                                     f'"{address}", '
-                                     f'"{suburb}", '
-                                     f'"{state}", '
-                                     f'"{postcode}", '
-                                     f'"{home_phone}", '
-                                     f'"{mobile}", '
-                                     f'"{email}", '
-                                     f'"{status}")')
-            self.dbconnection.commit()
-            self.member_page.update_window()
-            self.destroy()
+            try:
+                self.dbconnection.insert(f'insert'
+                                         f' into members ( '
+                                         f'member_fname, '
+                                         f'member_lname, '
+                                         f'partner_name, '
+                                         f'street_address, '
+                                         f'suburb, state, '
+                                         f'postcode, '
+                                         f'home_phone, '
+                                         f'mobile_phone, '
+                                         f'email, '
+                                         f'member_status) '
+                                         f'values ( '
+                                         f'"{fname}", '
+                                         f'"{lname}", '
+                                         f'"{partner}", '
+                                         f'"{address}", '
+                                         f'"{suburb}", '
+                                         f'"{state}", '
+                                         f'"{postcode}", '
+                                         f'"{home_phone}", '
+                                         f'"{mobile}", '
+                                         f'"{email}", '
+                                         f'"{status}")')
+            except Exception as e:
+                print('Error Logged')
+                string = (f'insert'
+                                         f' into members ( '
+                                         f'member_fname, '
+                                         f'member_lname, '
+                                         f'partner_name, '
+                                         f'street_address, '
+                                         f'suburb, state, '
+                                         f'postcode, '
+                                         f'home_phone, '
+                                         f'mobile_phone, '
+                                         f'email, '
+                                         f'member_status) '
+                                         f'values ( '
+                                         f'"{fname}", '
+                                         f'"{lname}", '
+                                         f'"{partner}", '
+                                         f'"{address}", '
+                                         f'"{suburb}", '
+                                         f'"{state}", '
+                                         f'"{postcode}", '
+                                         f'"{home_phone}", '
+                                         f'"{mobile}", '
+                                         f'"{email}", '
+                                         f'"{status}")')
+                logging.exception(f"Error with New Member \nInsert String: {string}")
+                messagebox.showwarning('Unknown Error', f'An unknown error occurred and has been logged. Report to developer.')
+            else:
+                self.dbconnection.commit()
+                self.member_page.update_window()
+                self.destroy()
         else:
             messagebox.showwarning('Format Error', f'The following fields need to be numeric:\n\n{error_str}')
 
@@ -1477,8 +1551,6 @@ class HistoryWindow(tk.Tk):
             self.delete_button.grid(row=7, columnspan=3)
 
             self.attributes("-topmost", True)
-
-
 
     def delete_transfer_record(self):
         delete_yesno = messagebox.askyesno('Delete Transfer', 'Are you sure you want to delete this transfer record?', parent=self)
@@ -2053,7 +2125,7 @@ class ExpenseWindow(tk.Tk):
 
                     else:
                         expense_id = self.expense_dict[self.expense_var.get()]
-
+                    try:
                         self.databaseConnection.insert(f'insert into '
                                                        f'expense_receipt '
                                                        f'(expense_receipt_no, '
@@ -2069,6 +2141,29 @@ class ExpenseWindow(tk.Tk):
                                                        f'{self.transfer}, '
                                                        f'str_to_date("{date}","%d/%m/%Y"), '
                                                        f'"{notes}");')
+                    except Exception as e:
+                        print('Error Logged')
+                        string = (f'insert into '
+                                                       f'expense_receipt '
+                                                       f'(expense_receipt_no, '
+                                                       f'expense_id, '
+                                                       f'cash_amount, '
+                                                       f'transfer_amount, '
+                                                       f'payment_datetime, '
+                                                       f'expense_notes) '
+                                                       f'values '
+                                                       f'({current_expense_no}, '
+                                                       f'{expense_id}, '
+                                                       f'{self.cash}, '
+                                                       f'{self.transfer}, '
+                                                       f'str_to_date("{date}","%d/%m/%Y"), '
+                                                       f'"{notes}");')
+                        print(string)
+                        logging.exception(f"Error with Edit Member\nInsert String: {string}")
+                        messagebox.showwarning('Unknown Error',
+                                               f'An unknown error occurred and has been logged. Report to developer.')
+
+                    else:
                         self.databaseConnection.commit()
                         self.main_menu.update_tables()
                         self.destroy()
@@ -2237,7 +2332,7 @@ class IncomeWindow(tk.Tk):
                                                 parent=self.main_menu)
                     else:
                         income_id = self.income_dict[self.income_var.get()]
-
+                    try:
                         self.databaseConnection.insert(f'insert into '
                                                        f'income_receipt '
                                                        f'(income_receipt_no, '
@@ -2253,6 +2348,28 @@ class IncomeWindow(tk.Tk):
                                                        f'{self.transfer}, '
                                                        f'str_to_date("{date}","%d/%m/%Y"), '
                                                        f'"{notes}");')
+                    except Exception as e:
+                        print('Error Logged')
+                        string = (f'insert into '
+                                                       f'income_receipt '
+                                                       f'(income_receipt_no, '
+                                                       f'income_id, '
+                                                       f'cash_amount, '
+                                                       f'transfer_amount, '
+                                                       f'payment_datetime, '
+                                                       f'income_notes) '
+                                                       f'values '
+                                                       f'({current_income_no}, '
+                                                       f'{income_id}, '
+                                                       f'{self.cash}, '
+                                                       f'{self.transfer}, '
+                                                       f'str_to_date("{date}","%d/%m/%Y"), '
+                                                       f'"{notes}");')
+                        print(string)
+                        logging.exception(f"Error with Edit Member\nInsert String: {string}")
+                        messagebox.showwarning('Unknown Error',
+                                               f'An unknown error occurred and has been logged. Report to developer.')
+                    else:
                         self.databaseConnection.commit()
                         self.main_menu.update_tables()
                         self.destroy()
@@ -2301,7 +2418,6 @@ class AutoInvoicing(tk.Tk):
                                                             'members '
                                                             'where '
                                                             'member_status = "ACTIVE";')
-
 
         self.current_invoice_no = self.databaseConnection.query('select max(invoice_no)+1 from invoice')
         self.current_invoice_no = self.current_invoice_no[0][0]
@@ -2491,7 +2607,6 @@ class CommitteeReport(tk.Frame):
         elif current_month == 12:
             self.current_month = 'December'
 
-
         balances_label = tk.Label(self, text='Reports', font='courier 40 bold')
         balances_label.grid(row=0, column=0,  columnspan=9, sticky='n')
 
@@ -2500,13 +2615,6 @@ class CommitteeReport(tk.Frame):
                                                 f'Bank Balance: ${self.balances[0][1]}',
                                            font='courier 20 bold')
         self.cash_balance_label.grid(row=3, column=1, columnspan=3, sticky='n')
-
-        # self.current_month_radio = tk.Radiobutton(self, text='Current Month', command=lambda: self.money_in_out(0))
-        # self.current_month_radio.grid(row=2, column=6)
-        # self.current_financial_radio = tk.Radiobutton(self, text='Current FY', command=lambda: self.money_in_out(1))
-        # self.current_financial_radio.grid(row=2, column=7)
-        # self.all_time_radio = tk.Radiobutton(self, text='All Time', command=lambda: self.money_in_out(2))
-        # self.all_time_radio.grid(row=2, column=8)
 
         self.month_in = self.databaseConnection.query('select '
                                                       'sum(cash_amount)+sum(transfer_amount) '
@@ -2533,7 +2641,7 @@ class CommitteeReport(tk.Frame):
         if datetime.today() > datetime(current_year, 7, 1):
             financial_year_start_date = datetime(current_year, 7, 1).strftime('%Y-%m-%d')
         else:
-            financial_year_start_date = datetime(current_year -1, 7, 1).strftime('%Y-%m-%d')
+            financial_year_start_date = datetime(current_year - 1, 7, 1).strftime('%Y-%m-%d')
         self.year_in = self.databaseConnection.query('select '
                                                      'sum(cash_amount)+sum(transfer_amount) '
                                                      'from '
@@ -3092,7 +3200,8 @@ try:
 except FileNotFoundError:
     messagebox.showerror('Settings File Error', 'A error occurred while reading settings.txt')
 else:
-
+    logging.basicConfig(filename='./config/log_file.txt',
+                        format='-' * 60 + '\n%(asctime)s - %(name)s - %(levelname)s - %(message)s')
     settings = settings.read()
     print(settings)
     settings = settings.splitlines()
