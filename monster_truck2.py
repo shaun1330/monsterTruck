@@ -2126,7 +2126,7 @@ class ExpenseWindow(tk.Tk):
 
                     else:
                         expense_id = self.expense_dict[self.expense_var.get()]
-
+                    try:
                         self.databaseConnection.insert(f'insert into '
                                                        f'expense_receipt '
                                                        f'(expense_receipt_no, '
@@ -2142,6 +2142,29 @@ class ExpenseWindow(tk.Tk):
                                                        f'{self.transfer}, '
                                                        f'str_to_date("{date}","%d/%m/%Y"), '
                                                        f'"{notes}");')
+                    except Exception as e:
+                        print('Error Logged')
+                        string = (f'insert into '
+                                                       f'expense_receipt '
+                                                       f'(expense_receipt_no, '
+                                                       f'expense_id, '
+                                                       f'cash_amount, '
+                                                       f'transfer_amount, '
+                                                       f'payment_datetime, '
+                                                       f'expense_notes) '
+                                                       f'values '
+                                                       f'({current_expense_no}, '
+                                                       f'{expense_id}, '
+                                                       f'{self.cash}, '
+                                                       f'{self.transfer}, '
+                                                       f'str_to_date("{date}","%d/%m/%Y"), '
+                                                       f'"{notes}");')
+                        print(string)
+                        logging.exception(f"Error with Edit Member\nInsert String: {string}")
+                        messagebox.showwarning('Unknown Error',
+                                               f'An unknown error occurred and has been logged. Report to developer.')
+
+                    else:
                         self.databaseConnection.commit()
                         self.main_menu.update_tables()
                         self.destroy()
@@ -2310,7 +2333,7 @@ class IncomeWindow(tk.Tk):
                                                 parent=self.main_menu)
                     else:
                         income_id = self.income_dict[self.income_var.get()]
-
+                    try:
                         self.databaseConnection.insert(f'insert into '
                                                        f'income_receipt '
                                                        f'(income_receipt_no, '
@@ -2326,6 +2349,28 @@ class IncomeWindow(tk.Tk):
                                                        f'{self.transfer}, '
                                                        f'str_to_date("{date}","%d/%m/%Y"), '
                                                        f'"{notes}");')
+                    except Exception as e:
+                        print('Error Logged')
+                        string = (f'insert into '
+                                                       f'income_receipt '
+                                                       f'(income_receipt_no, '
+                                                       f'income_id, '
+                                                       f'cash_amount, '
+                                                       f'transfer_amount, '
+                                                       f'payment_datetime, '
+                                                       f'income_notes) '
+                                                       f'values '
+                                                       f'({current_income_no}, '
+                                                       f'{income_id}, '
+                                                       f'{self.cash}, '
+                                                       f'{self.transfer}, '
+                                                       f'str_to_date("{date}","%d/%m/%Y"), '
+                                                       f'"{notes}");')
+                        print(string)
+                        logging.exception(f"Error with Edit Member\nInsert String: {string}")
+                        messagebox.showwarning('Unknown Error',
+                                               f'An unknown error occurred and has been logged. Report to developer.')
+                    else:
                         self.databaseConnection.commit()
                         self.main_menu.update_tables()
                         self.destroy()
