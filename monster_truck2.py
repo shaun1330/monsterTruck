@@ -18,13 +18,14 @@ from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
 from matplotlib.figure import Figure
 from openpyxl import Workbook
 from subprocess import Popen
-
+import sys
 
 class App(tk.Tk):
     def __init__(self, connection, email_address, email_password, *args, **kwargs):
         tk.Tk.__init__(self, *args, **kwargs)
         s = Style()
         s.theme_use('clam')
+        self.report_callback_exception = self.log_unhandled_exception
         self.configure(background='black')
         self.menuBar = tk.Menu(self)
         self.config(menu=self.menuBar)
@@ -54,6 +55,10 @@ class App(tk.Tk):
                 self.frames[F] = frame
                 frame.grid(row=0, column=0, sticky='NSEW')
         self.show_frame(MainMenu)
+
+    def log_unhandled_exception(self, type, value, traceback):
+        logger.exception('Unhandled Exception', exc_info=(type, value, traceback))
+        messagebox.showerror("Critical Error", 'An unknown error has occurred.\nContact Developer.')
 
     def show_frame(self, page):
         frame = self.frames[page]
@@ -708,24 +713,9 @@ class EditMember(tk.Tk):
                                  f'member_no = {self.member_no}')
         except Exception as e:
             print('Error Logged')
-            string = (f'update members'
-            f' set '
-            f'member_fname = "{fname}", '
-            f'member_lname = "{lname}", '
-            f'partner_name = "{partner}", '
-            f'street_address = "{address}", '
-            f'suburb = "{suburb}", '
-            f'state = "{state}", '
-            f'postcode = "{postcode}", '
-            f'home_phone = "{home_phone}", '
-            f'mobile_phone = "{mobile}", '
-            f'email = "{email}", '
-            f'member_status = "{status}" '
-            f'where '
-            f'member_no = {self.member_no}')
-            print(string)
-            logging.exception(f"Error with Edit Member\nInsert String: {string}")
-            messagebox.showwarning('Unknown Error', f'An unknown error occurred and has been logged. Report to developer.')
+            logger.exception(e)
+            messagebox.showwarning('Unknown Error',
+                                   f'An unknown error occurred and has been logged. Report to developer.')
         else:
             self.databaseConnection.commit()
             self.member_page.update_window()
@@ -960,22 +950,7 @@ class InvoiceWindow(tk.Tk):
                                                f'"No")')
             except Exception as e:
                 print('Error Logged')
-                string = (f'insert into invoice '
-                                               f'(invoice_no, '
-                                               f'invoice_date, '
-                                               f'invoice_duedate, '
-                                               f'invoice_total, '
-                                               f'member_no, '
-                                               f'invoice_sent) '
-                                               f'values '
-                                               f'({self.current_invoice_no}, '
-                                               f'now(), '
-                                               f'str_to_date({due_date},"%d/%m/%Y"), '
-                                               f'{invoice_total}, '
-                                               f'{member_no}, '
-                                               f'"No")')
-                print(string)
-                logging.exception(f"Error with Invoice\nInsert String: {string}")
+                logger.exception(e)
                 messagebox.showwarning('Unknown Error',
                                        f'An unknown error occurred and has been logged. Report to developer.')
             else:
@@ -991,11 +966,7 @@ class InvoiceWindow(tk.Tk):
                                                    f'({self.current_invoice_no}, {item_code}, {item_qty}, {item_price})')
                     except Exception as e:
                         print('Error Logged')
-                        string = (f'insert into invoice_line '
-                                                   f'(invoice_no, item_code, item_qty, invoice_item_value) values '
-                                                   f'({self.current_invoice_no}, {item_code}, {item_qty}, {item_price})')
-                        print(string)
-                        logging.exception(f"Error with Invoice\nInsert String: {string}")
+                        logger.exception(e)
                         messagebox.showwarning('Unknown Error',
                                                f'An unknown error occurred and has been logged. Report to developer.')
                 self.databaseConnection.commit()
@@ -1192,32 +1163,9 @@ class NewMemberPage(tk.Tk):
                                          f'"{status}")')
             except Exception as e:
                 print('Error Logged')
-                string = (f'insert'
-                                         f' into members ( '
-                                         f'member_fname, '
-                                         f'member_lname, '
-                                         f'partner_name, '
-                                         f'street_address, '
-                                         f'suburb, state, '
-                                         f'postcode, '
-                                         f'home_phone, '
-                                         f'mobile_phone, '
-                                         f'email, '
-                                         f'member_status) '
-                                         f'values ( '
-                                         f'"{fname}", '
-                                         f'"{lname}", '
-                                         f'"{partner}", '
-                                         f'"{address}", '
-                                         f'"{suburb}", '
-                                         f'"{state}", '
-                                         f'"{postcode}", '
-                                         f'"{home_phone}", '
-                                         f'"{mobile}", '
-                                         f'"{email}", '
-                                         f'"{status}")')
-                logging.exception(f"Error with New Member \nInsert String: {string}")
-                messagebox.showwarning('Unknown Error', f'An unknown error occurred and has been logged. Report to developer.')
+                logger.exception(e)
+                messagebox.showwarning('Unknown Error',
+                                       f'An unknown error occurred and has been logged. Report to developer.')
             else:
                 self.dbconnection.commit()
                 self.member_page.update_window()
@@ -1288,7 +1236,7 @@ class HistoryWindow(tk.Tk):
             except Exception as e:
                 self.destroy()
                 state = 'off'
-                logging.exception(e)
+                logger.exception(e)
             if state == 'on':
                 self.invoice_data = self.invoice_data[0]
                 try:
@@ -2152,23 +2100,7 @@ class ExpenseWindow(tk.Tk):
                                                        f'"{notes}");')
                     except Exception as e:
                         print('Error Logged')
-                        string = (f'insert into '
-                                                       f'expense_receipt '
-                                                       f'(expense_receipt_no, '
-                                                       f'expense_id, '
-                                                       f'cash_amount, '
-                                                       f'transfer_amount, '
-                                                       f'payment_datetime, '
-                                                       f'expense_notes) '
-                                                       f'values '
-                                                       f'({current_expense_no}, '
-                                                       f'{expense_id}, '
-                                                       f'{self.cash}, '
-                                                       f'{self.transfer}, '
-                                                       f'str_to_date("{date}","%d/%m/%Y"), '
-                                                       f'"{notes}");')
-                        print(string)
-                        logging.exception(f"Error with Edit Member\nInsert String: {string}")
+                        logger.exception(e)
                         messagebox.showwarning('Unknown Error',
                                                f'An unknown error occurred and has been logged. Report to developer.')
 
@@ -2375,7 +2307,7 @@ class IncomeWindow(tk.Tk):
                                                        f'str_to_date("{date}","%d/%m/%Y"), '
                                                        f'"{notes}");')
                         print(string)
-                        logging.exception(f"Error with Edit Member\nInsert String: {string}")
+                        logger.exception(f"Error with Edit Member\nInsert String: {string}")
                         messagebox.showwarning('Unknown Error',
                                                f'An unknown error occurred and has been logged. Report to developer.')
                     else:
@@ -3203,12 +3135,18 @@ class ReportPeriod(tk.Tk):
         self.destroy()
         messagebox.showinfo('Committee Report', 'Committee report was successfully created', parent=self.committee_page)
 
+def exception_handler(type, value, traceback):
+    if issubclass(type, KeyboardInterrupt):
+        sys.__excepthook__(type, value, traceback)
+        return
+    logger.critical("Unhandled exception", )
 
 try:
     settings = open('./config/settings.txt', 'r')
 except FileNotFoundError:
     messagebox.showerror('Settings File Error', 'A error occurred while reading settings.txt')
 else:
+    logger = logging.getLogger(__name__)
     logging.basicConfig(filename='./config/log_file.txt',
                         format='-' * 60 + '\n%(asctime)s - %(name)s - %(levelname)s - %(message)s')
     settings = settings.read()
