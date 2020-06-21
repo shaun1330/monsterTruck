@@ -1229,6 +1229,7 @@ class NewMemberPage(tk.Tk):
 class HistoryWindow(tk.Tk):
     def __init__(self, receipt_no, connection, main_menu, type, email_address, email_password,*args, **kwargs):
         tk.Tk.__init__(self, *args, **kwargs)
+        state = 'on'
         self.receipt_no = int(receipt_no)
         self.main_menu = main_menu
         self.databaseConnection = connection
@@ -1279,17 +1280,19 @@ class HistoryWindow(tk.Tk):
                                                                   f'on '
                                                                   f'invoice.invoice_no = invoice_receipt.invoice_no '
                                                                   f'join '
-                                                                  f'member '
+                                                                  f'members '
                                                                   f'on '
-                                                                  f'member.member_no = invoice.member_no '
+                                                                  f'members.member_no = invoice.member_no '
                                                                   f'where '
                                                                   f'invoice_receipt_no = {receipt_no};')
-            except:
-                print('error 1')
+            except Exception as e:
                 self.destroy()
-            self.invoice_data = self.invoice_data[0]
-            try:
-                self.invoice_line = self.databaseConnection.query(f'select '
+                state = 'off'
+                logging.exception(e)
+            if state == 'on':
+                self.invoice_data = self.invoice_data[0]
+                try:
+                    self.invoice_line = self.databaseConnection.query(f'select '
                                                                   f'item.item_code, '
                                                                   f'item_description, '
                                                                   f'invoice_item_value, '
@@ -1302,76 +1305,82 @@ class HistoryWindow(tk.Tk):
                                                                   f'on '
                                                                   f'invoice_line.item_code = item.item_code '
                                                                   f'where invoice_no = {self.invoice_data[1]} ;')
-            except:
-                print('error: 2')
-                self.destroy()
-            self.invoice_heading = tk.Label(self, text=f'Invoice Receipt: {self.receipt_no}', font='Courier 30 bold')
-            self.invoice_heading.grid(row=0, columnspan=3, sticky='w')
+                except:
+                    state = 'off'
+                    self.destroy()
+                if state == 'on':
 
-            self.member_name_label = tk.Label(self, text=f'Member Name: {self.invoice_data[4]}', font='Courier 15 bold')
-            self.member_name_label.grid(row=1, columnspan=3, sticky='nw', padx=10)
+                    self.invoice_heading = tk.Label(self, text=f'Invoice Receipt: {self.receipt_no}', font='Courier 30 bold')
+                    self.invoice_heading.grid(row=0, columnspan=3, sticky='w')
 
-            self.issue_date_label = tk.Label(self, text=f'Issue Date: {self.invoice_data[3]}', font='Courier 15 bold')
-            self.issue_date_label.grid(row=2, columnspan=3, sticky='nw', padx=10)
+                    self.member_name_label = tk.Label(self, text=f'Member Name: {self.invoice_data[4]}', font='Courier 15 bold')
+                    self.member_name_label.grid(row=1, columnspan=3, sticky='nw', padx=10)
 
-            self.payment_date_label = tk.Label(self, text=f'Payment Date: {self.invoice_data[2]}', font='Courier 15 bold')
-            self.payment_date_label.grid(row=3, columnspan=3, sticky='nw', padx=10)
+                    self.issue_date_label = tk.Label(self, text=f'Issue Date: {self.invoice_data[3]}', font='Courier 15 bold')
+                    self.issue_date_label.grid(row=2, columnspan=3, sticky='nw', padx=10)
 
-            self.total_label = tk.Label(self, text=f'Cash Amount: ${self.invoice_data[5]} ', font='Courier 15 bold')
-            self.total_label.grid(row=4, columnspan=2, sticky='w', padx=10)
+                    self.payment_date_label = tk.Label(self, text=f'Payment Date: {self.invoice_data[2]}', font='Courier 15 bold')
+                    self.payment_date_label.grid(row=3, columnspan=3, sticky='nw', padx=10)
 
-            self.total_label = tk.Label(self, text=f'Transfer Amount: ${self.invoice_data[6]} ', font='Courier 15 bold')
-            self.total_label.grid(row=5, columnspan=2, sticky='w', padx=10)
+                    self.total_label = tk.Label(self, text=f'Cash Amount: ${self.invoice_data[5]} ', font='Courier 15 bold')
+                    self.total_label.grid(row=4, columnspan=2, sticky='w', padx=10)
 
-            self.total_label = tk.Label(self, text=f'Total: ${self.invoice_data[7]} ', font='Courier 15 bold')
-            self.total_label.grid(row=6, columnspan=2, sticky='w', padx=10)
+                    self.total_label = tk.Label(self, text=f'Transfer Amount: ${self.invoice_data[6]} ', font='Courier 15 bold')
+                    self.total_label.grid(row=5, columnspan=2, sticky='w', padx=10)
 
-            if self.invoice_data[-1] == 'No':
-                self.send_invoice_button = tk.Button(self, text='Send Receipt', command=self.send_receipt)
-                button_font = font.Font(family='Courier', size=15, weight='bold')
-                self.send_invoice_button['font'] = button_font
-                self.send_invoice_button.grid(row=6, column=2)
+                    self.total_label = tk.Label(self, text=f'Total: ${self.invoice_data[7]} ', font='Courier 15 bold')
+                    self.total_label.grid(row=6, columnspan=2, sticky='w', padx=10)
+
+                    if self.invoice_data[-1] == 'No':
+                        self.send_invoice_button = tk.Button(self, text='Send Receipt', command=self.send_receipt)
+                        button_font = font.Font(family='Courier', size=15, weight='bold')
+                        self.send_invoice_button['font'] = button_font
+                        self.send_invoice_button.grid(row=6, column=2)
+                    else:
+                        self.send_invoice_button = tk.Button(self, text='Resend Receipt', command=self.send_receipt)
+                        button_font = font.Font(family='Courier', size=15, weight='bold')
+                        self.send_invoice_button['font'] = button_font
+                        self.send_invoice_button.grid(row=6, column=2)
+
+                    self.receipt_table = Treeview(self)
+                    self.receipt_table["columns"] = ('item_desc', 'unit_price', 'qty', 'subtotal')
+                    self.receipt_table.column('#0', width=round(self.winfo_screenwidth() * 0.05), minwidth=50, stretch=tk.NO)
+                    self.receipt_table.column('item_desc', width=round(self.winfo_screenwidth() * 0.12), minwidth=50,
+                                              stretch=tk.NO)
+                    self.receipt_table.column('unit_price', width=round(self.winfo_screenwidth() * 0.07), minwidth=50,
+                                              stretch=tk.NO)
+                    self.receipt_table.column('qty', width=round(self.winfo_screenwidth() * 0.06), minwidth=50, stretch=tk.NO)
+                    self.receipt_table.column('subtotal', width=round(self.winfo_screenwidth() * 0.06), minwidth=50,
+                                              stretch=tk.NO)
+
+                    self.receipt_table.heading('#0', text="Item Code")
+                    self.receipt_table.heading('item_desc', text="Item Description")
+                    self.receipt_table.heading('unit_price', text="Unit Price")
+                    self.receipt_table.heading('qty', text="QTY")
+                    self.receipt_table.heading('subtotal', text="Sub Total")
+
+                    self.receipt_table.grid(row=7, columnspan=3, pady=(0,10))
+
+                    for row in self.invoice_line:
+                        self.receipt_table.insert('', 'end', text=row[0], values=row[1:])
+
+                    self.refund_button = tk.Button(self, text='Refund', command=self.refund_invoice)
+                    self.refund_button['font'] = button_font
+                    self.refund_button.grid(row=8, column=0, pady=10)
+
+                    self.delete_button = tk.Button(self, text='Delete', command=self.delete_receipt)
+                    self.delete_button['font'] = button_font
+                    self.delete_button.grid(row=8, column=1, pady=10)
+
+                    self.view_receipt_button = tk.Button(self, text='View Receipt', command=self.view_receipt)
+                    self.view_receipt_button['font'] = button_font
+                    self.view_receipt_button.grid(row=8, column=2, pady=10)
+
+                    self.attributes("-topmost", True)  # #
+                else:
+                    messagebox.showerror('Error', 'Error occurred. Report to developer .')
             else:
-                self.send_invoice_button = tk.Button(self, text='Resend Receipt', command=self.send_receipt)
-                button_font = font.Font(family='Courier', size=15, weight='bold')
-                self.send_invoice_button['font'] = button_font
-                self.send_invoice_button.grid(row=6, column=2)
-
-            self.receipt_table = Treeview(self)
-            self.receipt_table["columns"] = ('item_desc', 'unit_price', 'qty', 'subtotal')
-            self.receipt_table.column('#0', width=round(self.winfo_screenwidth() * 0.05), minwidth=50, stretch=tk.NO)
-            self.receipt_table.column('item_desc', width=round(self.winfo_screenwidth() * 0.12), minwidth=50,
-                                      stretch=tk.NO)
-            self.receipt_table.column('unit_price', width=round(self.winfo_screenwidth() * 0.07), minwidth=50,
-                                      stretch=tk.NO)
-            self.receipt_table.column('qty', width=round(self.winfo_screenwidth() * 0.06), minwidth=50, stretch=tk.NO)
-            self.receipt_table.column('subtotal', width=round(self.winfo_screenwidth() * 0.06), minwidth=50,
-                                      stretch=tk.NO)
-
-            self.receipt_table.heading('#0', text="Item Code")
-            self.receipt_table.heading('item_desc', text="Item Description")
-            self.receipt_table.heading('unit_price', text="Unit Price")
-            self.receipt_table.heading('qty', text="QTY")
-            self.receipt_table.heading('subtotal', text="Sub Total")
-
-            self.receipt_table.grid(row=7, columnspan=3, pady=(0,10))
-
-            for row in self.invoice_line:
-                self.receipt_table.insert('', 'end', text=row[0], values=row[1:])
-
-            self.refund_button = tk.Button(self, text='Refund', command=self.refund_invoice)
-            self.refund_button['font'] = button_font
-            self.refund_button.grid(row=8, column=0, pady=10)
-
-            self.delete_button = tk.Button(self, text='Delete', command=self.delete_receipt)
-            self.delete_button['font'] = button_font
-            self.delete_button.grid(row=8, column=1, pady=10)
-
-            self.view_receipt_button = tk.Button(self, text='View Receipt', command=self.view_receipt)
-            self.view_receipt_button['font'] = button_font
-            self.view_receipt_button.grid(row=8, column=2, pady=10)
-
-            self.attributes("-topmost", True)  # #
+                messagebox.showerror('Error', 'Error occurred. Report to developer.')
         elif self.receipt_no > 30000 and self.receipt_no < 40000:  # income history
             self.grid_columnconfigure(0, weight=1)
             self.grid_columnconfigure(1, weight=1)
@@ -2373,7 +2382,7 @@ class IncomeWindow(tk.Tk):
                         self.databaseConnection.commit()
                         self.main_menu.update_tables()
                         self.destroy()
-                        messagebox.showinfo('Invoice Paid', 'Invoice created', parent=self.main_menu)
+                        messagebox.showinfo('Income Added', 'Income Added', parent=self.main_menu)
 
     def get_text(self):
         text = self.note.get('1.0', 'end')
