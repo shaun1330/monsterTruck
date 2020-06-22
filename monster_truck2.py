@@ -18,7 +18,7 @@ from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
 from matplotlib.figure import Figure
 from openpyxl import Workbook
 from subprocess import Popen
-import sys
+
 
 class App(tk.Tk):
     def __init__(self, connection, email_address, email_password, *args, **kwargs):
@@ -58,7 +58,8 @@ class App(tk.Tk):
 
     def log_unhandled_exception(self, type, value, traceback):
         logger.exception('Unhandled Exception', exc_info=(type, value, traceback))
-        messagebox.showerror("Critical Error", 'An unknown error has occurred.\nContact Developer.')
+        messagebox.showerror("Critical Error", 'An unknown error has occurred.\nContact Developer.\n\n'
+                                               f'{type,value}')
 
     def show_frame(self, page):
         frame = self.frames[page]
@@ -1370,11 +1371,11 @@ class HistoryWindow(tk.Tk):
             self.invoice_heading.grid(row=0, columnspan=3, sticky='w')
 
             self.income_date_label = tk.Label(self, text=f'Expense Date: {income_data[2]}',
-                                               font='Courier 15 bold')
+                                              font='Courier 15 bold')
             self.income_date_label.grid(row=1, columnspan=3, sticky='nw')
 
             self.income_decription_label = tk.Label(self, text=f'Category: {income_data[4]}',
-                                                     font='Courier 15 bold')
+                                                    font='Courier 15 bold')
             self.income_decription_label.grid(row=2, columnspan=3, sticky='nw')
 
             self.cash_label = tk.Label(self, text=f'Cash Amount: ${income_data[0]}', font='Courier 15 bold')
@@ -2479,7 +2480,9 @@ class EmailProgress(tk.Tk):
                 self.update_idletasks()
                 self.error = '1'
             else:
-                messagebox.showerror('Email Failed', 'Invoice failed to be sent. Check email \ncredentials are correct.', parent=self.main_menu)
+                messagebox.showerror('Email Failed', 'Invoice failed to be sent. '
+                                                     'Check email \ncredentials are correct.',
+                                     parent=self.main_menu)
                 self.error = '0'
                 break
         self.destroy()
@@ -2904,7 +2907,7 @@ class CashTransfers(tk.Tk):
         self.amount_label = tk.Label(self, text='Amount', font='courier 15 bold')
         self.amount_label.grid(row=0, column=1, columnspan=2)
 
-        self.transfer_label = tk.Label(self, text='Bank Balance',font='courier 15 bold')
+        self.transfer_label = tk.Label(self, text='Bank Balance', font='courier 15 bold')
         self.transfer_label.grid(row=0, column=3)
 
         self.bank_balance_label = tk.Label(self, text=f'${bank}', font='courier 20 bold')
@@ -3135,33 +3138,32 @@ class ReportPeriod(tk.Tk):
         self.destroy()
         messagebox.showinfo('Committee Report', 'Committee report was successfully created', parent=self.committee_page)
 
-def exception_handler(type, value, traceback):
-    if issubclass(type, KeyboardInterrupt):
-        sys.__excepthook__(type, value, traceback)
-        return
-    logger.critical("Unhandled exception", )
 
 try:
-    settings = open('./config/settings.txt', 'r')
+    setting = open('./config/settings.txt', 'r')
 except FileNotFoundError:
     messagebox.showerror('Settings File Error', 'A error occurred while reading settings.txt')
 else:
     logger = logging.getLogger(__name__)
     logging.basicConfig(filename='./config/log_file.txt',
                         format='-' * 60 + '\n%(asctime)s - %(name)s - %(levelname)s - %(message)s')
-    settings = settings.read()
-    print(settings)
+
+    settings = setting.read()
     settings = settings.splitlines()
-    email_address = settings[0]
-    email_password = settings[1]
-    database_user = settings[2]
-    database_password = settings[3]
-    host = settings[4]
-    database_name = settings[5]
+    settings = [i.split(':') for i in settings]
+    settings = dict(settings)
+    email_address = settings['email']
+    email_password = settings['email_password']
+    database_user = settings['db_user']
+    database_password = settings['db_password']
+    host = settings['host']
+    database_name = settings['db']
+    print(settings)
+    setting.close()
     #  backup database on startup
     args = f'mysqldump -u{database_user} -p{database_password} -h{host} --port=3306 --result-file ./db_backup.sql --databases {database_name}'
-    p = Popen(args, shell=False)
-    databaseConnection = myDb(database_user, database_password, host, database_name)
-    app = App(databaseConnection, email_address, email_password)
+    p = Popen(args, shell=False)  # run back up command in silent command window
+    databaseConnection = myDb(database_user, database_password, host, database_name)  # initialise db connection
+    app = App(databaseConnection, email_address, email_password)  # initialise app
     app.mainloop()
 

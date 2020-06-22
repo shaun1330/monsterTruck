@@ -34,8 +34,6 @@ class MydatabaseConnection:
     def commit(self):
         self.db.commit()
 
-    # def backup(self):
-    #     self.db.
 
 
 
