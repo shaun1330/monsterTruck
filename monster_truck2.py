@@ -548,6 +548,7 @@ class Members(tk.Frame):
 class EditMember(tk.Tk):
     def __init__(self, member_no, connection, member_page, *args, **kwargs):
         tk.Tk.__init__(self, *args, **kwargs)
+        self.report_callback_exception = self.log_unhandled_exception
         self.member_page = member_page
         self.databaseConnection = connection
         self.member_no = member_no
@@ -722,11 +723,17 @@ class EditMember(tk.Tk):
             self.member_page.update_window()
             self.destroy()
 
+    def log_unhandled_exception(self, type, value, traceback):
+        logger.exception('Unhandled Exception', exc_info=(type, value, traceback))
+        messagebox.showerror("Critical Error", 'An unknown error has occurred.\nContact Developer.\n\n'
+                                               f'{type,value}')
+
 
 class InvoiceWindow(tk.Tk):
     def __init__(self, connection, main_menu, *args, **kwargs ):
         tk.Tk.__init__(self, *args, **kwargs)
         self.main_menu = main_menu
+        self.report_callback_exception = self.log_unhandled_exception
         self.databaseConnection = connection
         self.grid_columnconfigure(0, weight=1)
         self.grid_columnconfigure(1, weight=1)
@@ -974,6 +981,11 @@ class InvoiceWindow(tk.Tk):
                 self.destroy()
                 messagebox.showinfo('Invoice Created', 'Invoice successfully created', parent=self.main_menu)
 
+    def log_unhandled_exception(self, type, value, traceback):
+        logger.exception('Unhandled Exception', exc_info=(type, value, traceback))
+        messagebox.showerror("Critical Error", 'An unknown error has occurred.\nContact Developer.\n\n'
+                                               f'{type,value}')
+
 
 class NewMemberPage(tk.Tk):
     def __init__(self, connection, member_page, *args, **kwargs):
@@ -981,6 +993,7 @@ class NewMemberPage(tk.Tk):
         height = self.winfo_screenheight()
         width = self.winfo_screenwidth()
         self.member_page = member_page
+        self.report_callback_exception = self.log_unhandled_exception
 
         self.grid_columnconfigure(0, weight=1)
         self.grid_columnconfigure(1, weight=1)
@@ -1171,11 +1184,17 @@ class NewMemberPage(tk.Tk):
         else:
             messagebox.showwarning('Format Error', f'The following fields need to be numeric:\n\n{error_str}')
 
+    def log_unhandled_exception(self, type, value, traceback):
+        logger.exception('Unhandled Exception', exc_info=(type, value, traceback))
+        messagebox.showerror("Critical Error", 'An unknown error has occurred.\nContact Developer.\n\n'
+                                               f'{type,value}')
+
 
 class HistoryWindow(tk.Tk):
     def __init__(self, receipt_no, connection, main_menu, type, email_address, email_password,*args, **kwargs):
         tk.Tk.__init__(self, *args, **kwargs)
         state = 'on'
+        self.report_callback_exception = self.log_unhandled_exception
         self.receipt_no = int(receipt_no)
         self.main_menu = main_menu
         self.databaseConnection = connection
@@ -1576,12 +1595,18 @@ class HistoryWindow(tk.Tk):
         else:
             print('Cancelled')
 
+    def log_unhandled_exception(self, type, value, traceback):
+        logger.exception('Unhandled Exception', exc_info=(type, value, traceback))
+        messagebox.showerror("Critical Error", 'An unknown error has occurred.\nContact Developer.\n\n'
+                                               f'{type,value}')
+
 
 class RefundCashOrTransfer(tk.Tk):
     def __init__(self, invoice_no, connection, main_menu, *args, **kwargs):
         tk.Tk.__init__(self, *args, **kwargs)
         self.attributes("-topmost", True)
         self.invoice_no = invoice_no
+        self.report_callback_exception = self.log_unhandled_exception
         self.main_menu = main_menu
         self.databaseConnection = connection
         x = self.winfo_screenwidth()
@@ -1592,11 +1617,17 @@ class RefundCashOrTransfer(tk.Tk):
             round((-b * y + y) / 2)))
         self.title('Invoice Refund')
 
+    def log_unhandled_exception(self, type, value, traceback):
+        logger.exception('Unhandled Exception', exc_info=(type, value, traceback))
+        messagebox.showerror("Critical Error", 'An unknown error has occurred.\nContact Developer.\n\n'
+                                               f'{type,value}')
+
 
 class Receipt_window(tk.Tk):
     def __init__(self, invoice_no, connection, main_menu, email_address, email_password, *args, **kwargs):
         tk.Tk.__init__(self, *args, **kwargs)
         self.invoice_no = invoice_no
+        self.report_callback_exception = self.log_unhandled_exception
         self.main_menu = main_menu
         self.databaseConnection = connection
         self.email_address = email_address
@@ -1755,11 +1786,17 @@ class Receipt_window(tk.Tk):
         else:
             print('Cancelled')
 
+    def log_unhandled_exception(self, type, value, traceback):
+        logger.exception('Unhandled Exception', exc_info=(type, value, traceback))
+        messagebox.showerror("Critical Error", 'An unknown error has occurred.\nContact Developer.\n\n'
+                                               f'{type,value}')
+
 
 class ReceiptCashOrTransfer(tk.Tk):
     def __init__(self, invoice_total, invoice_no, connection, receipt_window, main_menu, email, password, *args, **kwargs):
         self.invoice_no = invoice_no
         self.invoice_total = invoice_total
+        self.report_callback_exception = self.log_unhandled_exception
         self.receipt_window = receipt_window
         self.email_address = email
         self.email_password = password
@@ -1921,6 +1958,11 @@ class ReceiptCashOrTransfer(tk.Tk):
         receipt_gen.save('.\\receipt_pdfs')
         print('Success')
 
+    def log_unhandled_exception(self, type, value, traceback):
+        logger.exception('Unhandled Exception', exc_info=(type, value, traceback))
+        messagebox.showerror("Critical Error", 'An unknown error has occurred.\nContact Developer.\n\n'
+                                               f'{type,value}')
+
 
 class ExpenseWindow(tk.Tk):
     def __init__(self, connection, main_menu, *args, **kwargs):
@@ -1928,6 +1970,7 @@ class ExpenseWindow(tk.Tk):
         tk.Tk.__init__(self, *args, **kwargs)
         self.title('Add Expense')
         self.databaseConnection = connection
+        self.report_callback_exception = self.log_unhandled_exception
         self.grid_columnconfigure(0, weight=1)
         self.grid_columnconfigure(1, weight=1)
         self.grid_columnconfigure(2, weight=1)
@@ -2137,10 +2180,16 @@ class ExpenseWindow(tk.Tk):
         text = self.note.get('1.0', 'end')
         return text
 
+    def log_unhandled_exception(self, type, value, traceback):
+        logger.exception('Unhandled Exception', exc_info=(type, value, traceback))
+        messagebox.showerror("Critical Error", 'An unknown error has occurred.\nContact Developer.\n\n'
+                                               f'{type,value}')
+
 
 class IncomeWindow(tk.Tk):
     def __init__(self, connection, main_menu, *args, **kwargs):
         self.main_menu = main_menu
+        self.report_callback_exception = self.log_unhandled_exception
         tk.Tk.__init__(self, *args, **kwargs)
         self.databaseConnection = connection
         self.grid_columnconfigure(0, weight=1)
@@ -2358,12 +2407,18 @@ class IncomeWindow(tk.Tk):
         text = self.note.get('1.0', 'end')
         return text
 
+    def log_unhandled_exception(self, type, value, traceback):
+        logger.exception('Unhandled Exception', exc_info=(type, value, traceback))
+        messagebox.showerror("Critical Error", 'An unknown error has occurred.\nContact Developer.\n\n'
+                                               f'{type,value}')
+
 
 class AutoInvoicing(tk.Tk):
     def __init__(self, connection, main_menu, email_address, email_password, *args, **kwargs):
         tk.Tk.__init__(self, *args, **kwargs)
         self.main_menu = main_menu
         self.databaseConnection = connection
+        self.report_callback_exception = self.log_unhandled_exception
         self.email_address = email_address
         self.email_password = email_password
         self.grid_columnconfigure(0, weight=1)
@@ -2476,11 +2531,17 @@ class AutoInvoicing(tk.Tk):
                     messagebox.showinfo('Email Invoices', 'All invoices sent out', parent=self.main_menu)
             self.destroy()
 
+    def log_unhandled_exception(self, type, value, traceback):
+        logger.exception('Unhandled Exception', exc_info=(type, value, traceback))
+        messagebox.showerror("Critical Error", 'An unknown error has occurred.\nContact Developer.\n\n'
+                                               f'{type,value}')
+
 
 class EmailProgress(tk.Tk):
     def __init__(self, email_list, connection, main_menu, email_address, email_password, *args, **kwargs):
         tk.Tk.__init__(self, *args, **kwargs)
         self.databaseConnection = connection
+        self.report_callback_exception = self.log_unhandled_exception
         self.main_menu = main_menu
         self.email_address = email_address
         self.email_password = email_password
@@ -2530,6 +2591,11 @@ class EmailProgress(tk.Tk):
 
     def get_error_status(self):
         return self.error
+
+    def log_unhandled_exception(self, type, value, traceback):
+        logger.exception('Unhandled Exception', exc_info=(type, value, traceback))
+        messagebox.showerror("Critical Error", 'An unknown error has occurred.\nContact Developer.\n\n'
+                                               f'{type,value}')
 
 
 class CommitteeReport(tk.Frame):
@@ -2911,6 +2977,7 @@ class CashTransfers(tk.Tk):
     def __init__(self, connection, main_menu, *args, **kwargs):
         self.main_menu = main_menu
         self.databaseConnection = connection
+        self.report_callback_exception = self.log_unhandled_exception
         tk.Tk.__init__(self, *args, **kwargs)
 
         self.grid_columnconfigure(0, weight=1)
@@ -2993,10 +3060,16 @@ class CashTransfers(tk.Tk):
         self.bank_balance_label.configure(text=f'${bank}')
         self.transfer_entry_var.set('')
 
+    def log_unhandled_exception(self, type, value, traceback):
+        logger.exception('Unhandled Exception', exc_info=(type, value, traceback))
+        messagebox.showerror("Critical Error", 'An unknown error has occurred.\nContact Developer.\n\n'
+                                               f'{type,value}')
+
 
 class ReportPeriod(tk.Tk):
     def __init__(self, connection, committee_page, *args, **kwargs):
         self.databaseConnection = connection
+        self.report_callback_exception = self.log_unhandled_exception
         self.committee_page = committee_page
         tk.Tk.__init__(self, *args, **kwargs)
 
@@ -3039,7 +3112,6 @@ class ReportPeriod(tk.Tk):
 
         self.create = tk.Button(self, text='Create Report', command=self.committee_report_print)
         self.create.grid(row=3, column=1)
-
 
     def committee_report_print(self):
 
@@ -3175,6 +3247,11 @@ class ReportPeriod(tk.Tk):
         report.save('./committee_reports')
         self.destroy()
         messagebox.showinfo('Committee Report', 'Committee report was successfully created', parent=self.committee_page)
+
+    def log_unhandled_exception(self, type, value, traceback):
+        logger.exception('Unhandled Exception', exc_info=(type, value, traceback))
+        messagebox.showerror("Critical Error", 'An unknown error has occurred.\nContact Developer.\n\n'
+                                               f'{type,value}')
 
 
 try:
