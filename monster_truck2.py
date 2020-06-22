@@ -2429,9 +2429,10 @@ class AutoInvoicing(tk.Tk):
                 invoice.streetAdress(member[2])
                 invoice.cityStatePostCode(member[3], member[4], member[5])
                 invoice.invoiceDate(datetime.today().date().strftime('%d/%m/%y'))
-                invoice.invoice_line([1], ['Annual Membership Renewal Fee'], [100], [1], [100])
+                invoice.invoice_line([1], ['Annual Membership Renewal Fee'], [price], [1], [price])
                 invoice.save('.\\invoice_pdfs')
-            email_yesno = messagebox.askyesno('Email Invoices', 'Would you like to send out these invoices via email?', parent=self)
+            email_yesno = messagebox.askyesno('Email Invoices', 'Would you like to send out these invoices via email?',
+                                              parent=self)
             if email_yesno:
                 error = EmailProgress(invoice_email_list, self.databaseConnection, self.main_menu, self.email_address, self.email_password)
                 if error.get_error_status() == '1':
@@ -3142,7 +3143,7 @@ class ReportPeriod(tk.Tk):
 try:
     setting = open('./config/settings.txt', 'r')
 except FileNotFoundError:
-    messagebox.showerror('Settings File Error', 'A error occurred while reading settings.txt')
+    messagebox.showinfo('Welcome to Monster Truck v1.0.0', 'Welcome to Monster Truck. Press OK to get started.')
 else:
     logger = logging.getLogger(__name__)
     logging.basicConfig(filename='./config/log_file.txt',
