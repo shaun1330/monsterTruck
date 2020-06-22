@@ -32,7 +32,7 @@ class Emailer:
 
         text = message.as_string()
         try:
-            server = smtplib.SMTP(host='smtp.gmail.com', port=587)  # host='smtp.iprimus.com.au'
+            server = smtplib.SMTP(host='smtp.iprimus.com.au', port=587)  # host='smtp.iprimus.com.au'
             server.starttls()
             server.login(self.sender_email, self.password)
             server.sendmail(self.sender_email, self.receiver_email, text)

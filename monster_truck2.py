@@ -3181,7 +3181,7 @@ class ReportPeriod(tk.Tk):
 try:
     setting = open('./config/settings.txt', 'r')
 except FileNotFoundError:
-    messagebox.showinfo('Welcome to Monster Truck v1.0.0', 'Welcome to Monster Truck. Press OK to get started.')
+    messagebox.showerror('Error', 'Settings file not found')
 else:
     logger = logging.getLogger(__name__)
     logging.basicConfig(filename='./config/log_file.txt',
