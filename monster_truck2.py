@@ -27,16 +27,16 @@ class App(tk.Tk):
         s.theme_use('clam')
         self.report_callback_exception = self.log_unhandled_exception
         self.configure(background='black')
-        self.menuBar = tk.Menu(self)
-        self.config(menu=self.menuBar)
-        filemenu = tk.Menu(self.menuBar, tearoff=0)
-        filemenu.add_command(label='Invoicing', command=InvoiceWindow)
-        # filemenu.add_command(label='Set Starting Balance', command=lambda: SetBalance(connection))
-        filemenu.add_command(label="Exit", command=self.destroy)
-        self.menuBar.add_cascade(label='File', menu=filemenu)
+        # self.menuBar = tk.Menu(self)
+        # self.config(menu=self.menuBar)
+        # filemenu = tk.Menu(self.menuBar, tearoff=0)
+        # filemenu.add_command(label='Invoicing', command=InvoiceWindow)
+        # # filemenu.add_command(label='Set Starting Balance', command=lambda: SetBalance(connection))
+        # filemenu.add_command(label="Exit", command=self.destroy)
+        # self.menuBar.add_cascade(label='File', menu=filemenu)
         self.screen_height = self.winfo_screenheight()
         self.screen_width = self.winfo_screenwidth()
-        self.title("Monster Truck V.0.1")
+        self.title("Monster Truck v1.0.1")
         self.geometry(str(self.winfo_screenwidth())+'x'+str(self.winfo_screenheight()))
         self.state('zoomed')
         container = tk.Frame(self)
@@ -807,9 +807,6 @@ class InvoiceWindow(tk.Tk):
         self.due_date = tk.StringVar(self)
         self.duedate = tk.Label(self, text='Due Date:')
         self.duedate.grid(row=4, column=0, sticky='E')
-
-        # self.duedate_entry = tk.Entry(self, textvariable=self.due_date, width=round(self.winfo_screenwidth() * 0.01))
-        # self.duedate_entry.grid(row=4, column=1, sticky='W')
 
         self.duedate = DateEntry(self, date_pattern='dd/mm/yyyy')
         self.duedate.grid(row=4, column=1, sticky='w')
@@ -1623,7 +1620,7 @@ class Receipt_window(tk.Tk):
 
         try:
             self.invoice_data = self.databaseConnection.query(f'select '
-                                                              f'date_format(invoice_date, "%d-%m-%y"),'
+                                                              f'invoice_date, '
                                                               f'date_format(invoice_duedate, "%d-%m-%y"), '
                                                               f'invoice_total, '
                                                               f'concat_ws(" ", member_fname, member_lname), '
@@ -1909,10 +1906,16 @@ class ReceiptCashOrTransfer(tk.Tk):
         receipt_gen.cityStatePostCode(suburb, state, postcode)
         print('canvas created')
 
-        self.databaseConnection.insert(f'insert into invoice_receipt '
-                                       f'(invoice_receipt_no, invoice_no, cash_amount, transfer_amount, payment_datetime, receipt_sent) '
-                                       f'values '
-                                       f'({self.current_receipt_no}, {self.invoice_no}, {self.cash}, {self.transfer}, str_to_date("{date}","%d/%m/%Y"), "No")')
+        if date == datetime.today().strftime("%d/%m/%Y"):
+            self.databaseConnection.insert(f'insert into invoice_receipt '
+                                           f'(invoice_receipt_no, invoice_no, cash_amount, transfer_amount, payment_datetime, receipt_sent) '
+                                           f'values '
+                                           f'({self.current_receipt_no}, {self.invoice_no}, {self.cash}, {self.transfer}, now(), "No")')
+        else:
+            self.databaseConnection.insert(f'insert into invoice_receipt '
+                                           f'(invoice_receipt_no, invoice_no, cash_amount, transfer_amount, payment_datetime, receipt_sent) '
+                                           f'values '
+                                           f'({self.current_receipt_no}, {self.invoice_no}, {self.cash}, {self.transfer}, str_to_date("{date}","%d/%m/%Y"), "No")')
         self.databaseConnection.commit()
         self.main_menu.update_tables()
         receipt_gen.save('.\\receipt_pdfs')
@@ -2007,6 +2010,7 @@ class ExpenseWindow(tk.Tk):
     def submit(self):
         self.databaseConnection.reconnect()
         date = self.date_calendar.get()
+
         current_expense_no = self.databaseConnection.query('select max(expense_receipt_no)+1 from expense_receipt;')
         current_expense_no = current_expense_no[0][0]
         notes = self.get_text()
@@ -2084,21 +2088,38 @@ class ExpenseWindow(tk.Tk):
                     else:
                         expense_id = self.expense_dict[self.expense_var.get()]
                     try:
-                        self.databaseConnection.insert(f'insert into '
-                                                       f'expense_receipt '
-                                                       f'(expense_receipt_no, '
-                                                       f'expense_id, '
-                                                       f'cash_amount, '
-                                                       f'transfer_amount, '
-                                                       f'payment_datetime, '
-                                                       f'expense_notes) '
-                                                       f'values '
-                                                       f'({current_expense_no}, '
-                                                       f'{expense_id}, '
-                                                       f'{self.cash}, '
-                                                       f'{self.transfer}, '
-                                                       f'str_to_date("{date}","%d/%m/%Y"), '
-                                                       f'"{notes}");')
+                        if date == datetime.today().strftime(format="%d/%m/%Y"):
+                            self.databaseConnection.insert(f'insert into '
+                                                           f'expense_receipt '
+                                                           f'(expense_receipt_no, '
+                                                           f'expense_id, '
+                                                           f'cash_amount, '
+                                                           f'transfer_amount, '
+                                                           f'payment_datetime, '
+                                                           f'expense_notes) '
+                                                           f'values '
+                                                           f'({current_expense_no}, '
+                                                           f'{expense_id}, '
+                                                           f'{self.cash}, '
+                                                           f'{self.transfer}, '
+                                                           f'now(), '
+                                                           f'"{notes}");')
+                        else:
+                            self.databaseConnection.insert(f'insert into '
+                                                           f'expense_receipt '
+                                                           f'(expense_receipt_no, '
+                                                           f'expense_id, '
+                                                           f'cash_amount, '
+                                                           f'transfer_amount, '
+                                                           f'payment_datetime, '
+                                                           f'expense_notes) '
+                                                           f'values '
+                                                           f'({current_expense_no}, '
+                                                           f'{expense_id}, '
+                                                           f'{self.cash}, '
+                                                           f'{self.transfer}, '
+                                                           f'str_to_date("{date}","%d/%m/%Y"), '
+                                                           f'"{notes}");')
                     except Exception as e:
                         print('Error Logged')
                         logger.exception(e)
@@ -2275,21 +2296,38 @@ class IncomeWindow(tk.Tk):
                     else:
                         income_id = self.income_dict[self.income_var.get()]
                     try:
-                        self.databaseConnection.insert(f'insert into '
-                                                       f'income_receipt '
-                                                       f'(income_receipt_no, '
-                                                       f'income_id, '
-                                                       f'cash_amount, '
-                                                       f'transfer_amount, '
-                                                       f'payment_datetime, '
-                                                       f'income_notes) '
-                                                       f'values '
-                                                       f'({current_income_no}, '
-                                                       f'{income_id}, '
-                                                       f'{self.cash}, '
-                                                       f'{self.transfer}, '
-                                                       f'str_to_date("{date}","%d/%m/%Y"), '
-                                                       f'"{notes}");')
+                        if date == datetime.today().strftime('%d/%m/%Y'):
+                            self.databaseConnection.insert(f'insert into '
+                                                           f'income_receipt '
+                                                           f'(income_receipt_no, '
+                                                           f'income_id, '
+                                                           f'cash_amount, '
+                                                           f'transfer_amount, '
+                                                           f'payment_datetime, '
+                                                           f'income_notes) '
+                                                           f'values '
+                                                           f'({current_income_no}, '
+                                                           f'{income_id}, '
+                                                           f'{self.cash}, '
+                                                           f'{self.transfer}, '
+                                                           f'now(), '
+                                                           f'"{notes}");')
+                        else:
+                            self.databaseConnection.insert(f'insert into '
+                                                           f'income_receipt '
+                                                           f'(income_receipt_no, '
+                                                           f'income_id, '
+                                                           f'cash_amount, '
+                                                           f'transfer_amount, '
+                                                           f'payment_datetime, '
+                                                           f'income_notes) '
+                                                           f'values '
+                                                           f'({current_income_no}, '
+                                                           f'{income_id}, '
+                                                           f'{self.cash}, '
+                                                           f'{self.transfer}, '
+                                                           f'str_to_date("{date}","%d/%m/%Y"), '
+                                                           f'"{notes}");')
                     except Exception as e:
                         print('Error Logged')
                         string = (f'insert into '
