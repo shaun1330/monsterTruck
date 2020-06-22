@@ -1763,7 +1763,7 @@ class Receipt_window(tk.Tk):
             print(f'sending invoice to {self.email}')
             sender = Emailer('Greater Western 4x4 Club Invoice',
                     f'To {self.invoice_data[3]},\n\n'
-                    f' See attached your Greatern Western 4x4 Invoice.\n\n'
+                    f' See attached your Greater Western 4x4 Invoice.\n\n'
                     f'Invoice Due Date: {self.invoice_duedate}\n'
                     f'Invoice Total: ${self.invoice_data[2]} ',
                     self.email_address,
@@ -2059,31 +2059,32 @@ class ExpenseWindow(tk.Tk):
         notes = self.get_text()
         self.cash = self.expense_cash_var.get()
         self.transfer = self.expense_transfer_var.get()
-
-        if (self.cash == '' or int(self.cash) == 0) and (self.transfer == '' or int(self.transfer) == 0):
+        error = 0
+        if (self.cash == '' or self.cash == 0) and (self.transfer == '' or self.transfer == 0):
             messagebox.showerror('Missing Values', 'Cash and transfer values cannot be both zero', parent=self)
         else:
             if len(self.cash) == 0:
                 self.cash = 0
             elif match(r'^-?\d+\.?(\d+)?$', self.cash) is None:
                 messagebox.showerror('Value Error', 'Cash value must be numeric', parent=self)
+                error = 1
             else:
                 self.cash = float(self.cash)
-
-            if self.cash < 0:
+            if error == 0 and self.cash < 0:
                 messagebox.showerror('Value Error', 'Cash value must be greater than zero', parent=self)
-            else:
+            elif error == 0 and self.cash >= 0:
                 self.cash = -self.cash
                 if len(self.transfer) == 0:
                     self.transfer = 0
                 elif match(r'^-?\d+\.?(\d+)?$', self.transfer) is None:
                     messagebox.showerror('Value Error', 'Transfer value must be numeric', parent=self)
+                    error = 1
                 else:
                     self.transfer = float(self.transfer)
 
-                if self.transfer < 0:
+                if error == 0 and self.transfer < 0:
                     messagebox.showerror('Value Error', 'Transfer value must be greater than zero', parent=self)
-                else:
+                elif error == 0 and self.transfer >= 0:
                     self.transfer = -self.transfer
                     if self.expense_var.get() == 'Select Category':
                         messagebox.showerror('Select Category', 'Please select a category in the drop down menu\n'
@@ -2281,28 +2282,30 @@ class IncomeWindow(tk.Tk):
         notes = self.get_text()
         self.cash = self.income_cash_var.get()
         self.transfer = self.income_transfer_var.get()
-
-        if (self.cash == '' or int(self.cash) == 0) and (self.transfer == '' or int(self.transfer) == 0):
+        error = 0
+        if (self.cash == '' or self.cash == 0) and (self.transfer == '' or self.transfer == 0):
             messagebox.showerror('Missing Values', 'Cash and transfer values cannot be both zero', parent=self)
         else:
-            if len(self.cash) == 0:
-                self.cash = 0
-            elif match(r'^-?\d+.?(\d+)?$', self.cash) is None:
+            if match(r'^-?\d+.?(\d+)?$', self.cash) is None:
                 messagebox.showerror('Value Error', 'Cash value must be numeric', parent=self)
+                error = 1
+            elif len(self.cash) == 0:
+                self.cash = 0
             else:
                 self.cash = float(self.cash)
-            if self.cash < 0:
+            if error == 0 and self.cash < 0:
                 messagebox.showerror('Value Error', 'Cash value must be greater than zero', parent=self)
-            else:
+            elif error == 0 and self.cash >= 0:
                 if len(self.transfer) == 0:
                     self.transfer = 0
                 elif match(r'^-?\d+.?(\d+)?$', self.transfer) is None:
                     messagebox.showerror('Value Error', 'Transfer value must be numeric', parent=self)
+                    error = 1
                 else:
                     self.transfer = float(self.transfer)
-                if self.transfer < 0:
+                if error == 0 and self.transfer < 0:
                     messagebox.showerror('Value Error', 'Transfer value must be greater than zero', parent=self)
-                else:
+                elif error == 0 and self.transfer >= 0:
                     if self.income_var.get() == 'Select Category':
                         messagebox.showerror('Select Category', 'Please select a category in the drop down menu\n'
                                                                 'add a new one.', parent=self)
