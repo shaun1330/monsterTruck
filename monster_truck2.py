@@ -1804,7 +1804,7 @@ class ReceiptCashOrTransfer(tk.Tk):
         self.destroy()
 
     def submit_receipt(self):
-        error=0
+        error = 0
         self.cash = self.cash_var.get()
         if len(self.cash) == 0:
             self.cash = 0
@@ -1873,8 +1873,8 @@ class ReceiptCashOrTransfer(tk.Tk):
                                               f'item.item_code, '
                                               f'item_description, '
                                               f'item_qty, '
-                                              f'item_value, '
-                                              f'item_qty*item_value '
+                                              f'invoice_item_value, '
+                                              f'item_qty*invoice_item_value '
                                               f'from invoice_line '
                                               f'join '
                                               f'item on '
@@ -2236,7 +2236,6 @@ class IncomeWindow(tk.Tk):
         if (self.cash == '' or int(self.cash) == 0) and (self.transfer == '' or int(self.transfer) == 0):
             messagebox.showerror('Missing Values', 'Cash and transfer values cannot be both zero', parent=self)
         else:
-
             if len(self.cash) == 0:
                 self.cash = 0
             elif match(r'^-?\d+.?(\d+)?$', self.cash) is None:
