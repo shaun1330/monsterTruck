@@ -1879,7 +1879,7 @@ class ReceiptCashOrTransfer(tk.Tk):
 
         if error != 1:
             self.total = self.cash + self.transfer
-            if self.total != self.invoice_total:
+            if self.total != float(self.invoice_total):
                 messagebox.showerror('Value Error', 'Cash and transfer values do not equal invoice total', parent=self)
             else:
                 self.receipt_insert()
