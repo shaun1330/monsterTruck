@@ -1581,7 +1581,7 @@ class HistoryWindow(tk.Tk):
                     self.email_address,  # sender
                     self.invoice_data[-2],  # receiver
                     self.email_password,  # email password
-                    f'R{self.receipt_no}.pdf', 'receipt_pdfs')  # receipt attachment
+                    f'R{self.receipt_no}.pdf', '.\\config\\receipt_pdfs')  # receipt attachment
             status = sender.get_status()
             if status == '1':
                 self.databaseConnection.insert(
@@ -1771,7 +1771,7 @@ class Receipt_window(tk.Tk):
                     self.email,
                     self.email_password,
                     f'{self.invoice_no}.pdf',
-                    'invoice_pdfs')
+                    '.\\config\\invoice_pdfs')
             status = sender.get_status()
             print(status)
             if status == '1':
@@ -1879,7 +1879,7 @@ class ReceiptCashOrTransfer(tk.Tk):
                             self.email_address,  # sender
                             self.member_email,  # receiver
                             self.email_password,  # email password
-                            f'R{self.current_receipt_no}.pdf', 'receipt_pdfs')  # receipt attachment
+                            f'R{self.current_receipt_no}.pdf', '.\\config\\receipt_pdfs')  # receipt attachment
                     status = sender.get_status()
                     if status == '1':
                         self.databaseConnection.insert(
@@ -2607,7 +2607,7 @@ class EmailProgress(tk.Tk):
                     self.email_address,
                     email[1],
                     self.email_password,
-                    f'{email[0]}', 'invoice_pdfs')
+                    f'{email[0]}', '.\\config\\invoice_pdfs')
             status = sender.get_status()
             if status == '1':
                 invoice_no = email[0][:-4]
