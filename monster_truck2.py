@@ -21,7 +21,7 @@ from subprocess import Popen
 
 
 class App(tk.Tk):
-    def __init__(self, connection, email_address, email_password, *args, **kwargs):
+    def __init__(self, connection, email_address, email_password, email_host, email_port, *args, **kwargs):
         tk.Tk.__init__(self, *args, **kwargs)
         s = Style()
         s.theme_use('clam')
@@ -47,7 +47,10 @@ class App(tk.Tk):
         self.frames = {}
         for F in (MainMenu, Members, CommitteeReport):
             if F == MainMenu:
-                frame = F(container, self, connection=connection, email_address=email_address, email_password=email_password)
+                frame = F(container, self, connection=connection, email_address=email_address,
+                          email_password=email_password,
+                          email_host=email_host,
+                          email_port=email_port)
                 self.frames[F] = frame
                 frame.grid(row=0, column=0, sticky='NSEW')
             else:
@@ -71,11 +74,13 @@ class App(tk.Tk):
 
 
 class MainMenu(tk.Frame):
-    def __init__(self, parent, controller, connection, email_address, email_password):
+    def __init__(self, parent, controller, connection, email_address, email_password, email_host, email_port):
         tk.Frame.__init__(self, parent)
         self.connect = connection
         self.email_address = email_address
         self.email_password = email_password
+        self.email_host = email_host
+        self.email_port = email_port
         self.grid_columnconfigure(1, weight=1)
         self.grid_columnconfigure(2, weight=1)
         self.grid_rowconfigure(0, weight=1)
@@ -129,7 +134,9 @@ class MainMenu(tk.Frame):
         self.auto_invoicer_button = tk.Button(self, text='Auto\nInvoicer',
                                               command=lambda: AutoInvoicing(connection,
                                                                             self, self.email_address,
-                                                                            self.email_password))
+                                                                            self.email_password,
+                                                                            self.email_host,
+                                                                            self.email_port))
         self.auto_invoicer_button['font'] = button_font
         self.auto_invoicer_button.grid(row=6, column=0, padx=10)
 
@@ -282,7 +289,10 @@ class MainMenu(tk.Frame):
             send_yesno = messagebox.askyesno('Send Invoices', 'Are you sure you want to send out unsent invoices?')
             if send_yesno:
                 print(self.unsent_invoices)
-                status = EmailProgress(self.unsent_invoices, self.connect, self, self.email_address, self.email_password)
+                status = EmailProgress(self.unsent_invoices, self.connect, self, self.email_address,
+                                       self.email_password,
+                                       self.email_host,
+                                       self.email_port)
                 if status.get_error_status() == '1':
                     messagebox.showinfo('Email Invoices', 'All invoices sent out', parent=self)
 
@@ -370,13 +380,13 @@ class MainMenu(tk.Frame):
     def on_double_click_invoice(self, a):
         item = self.invoices_table.selection()
         invoice_no = self.invoices_table.item(item, 'text')
-        Receipt_window(invoice_no, self.connect, self, self.email_address, self.email_password)
+        Receipt_window(invoice_no, self.connect, self, self.email_address, self.email_password, self.email_host, self.email_port)
 
     def on_double_click_history(self, a):
         item = self.history_table.selection()
         receipt_no = self.history_table.item(item, 'value')
         receipt_type = self.history_table.item(item, 'text')
-        HistoryWindow(receipt_no[0], self.connect, self, receipt_type, self.email_address, self.email_password)
+        HistoryWindow(receipt_no[0], self.connect, self, receipt_type, self.email_address, self.email_password, self.email_host, self.email_port)
 
 
 class Members(tk.Frame):
@@ -1192,7 +1202,7 @@ class NewMemberPage(tk.Tk):
 
 
 class HistoryWindow(tk.Tk):
-    def __init__(self, receipt_no, connection, main_menu, type, email_address, email_password,*args, **kwargs):
+    def __init__(self, receipt_no, connection, main_menu, type, email_address, email_password, email_host, email_port,*args, **kwargs):
         tk.Tk.__init__(self, *args, **kwargs)
         state = 'on'
         self.report_callback_exception = self.log_unhandled_exception
@@ -1201,6 +1211,8 @@ class HistoryWindow(tk.Tk):
         self.databaseConnection = connection
         self.receipt_type = type
         self.email_address = email_address
+        self.email_host = email_host
+        self.email_port = email_port
         self.email_password = email_password
         if self.receipt_no >= 40000 and self.receipt_no < 50000:  # Invoice history
             self.grid_columnconfigure(0, weight=1)
@@ -1580,7 +1592,7 @@ class HistoryWindow(tk.Tk):
                     f' See attached your Greater Western 4x4 receipt.\n\n',
                     self.email_address,  # sender
                     self.invoice_data[-2],  # receiver
-                    self.email_password,  # email password
+                    self.email_password, self.email_host, self.email_port,  # email password
                     f'R{self.receipt_no}.pdf', '.\\config\\receipt_pdfs')  # receipt attachment
             status = sender.get_status()
             if status == '1':
@@ -1590,7 +1602,7 @@ class HistoryWindow(tk.Tk):
                 self.main_menu.update_tables()
                 messagebox.showinfo('Emailed Receipt', 'Receipt sent successfully.', parent=self)
                 self.destroy()
-                HistoryWindow(self.receipt_no, self.databaseConnection, self.main_menu, self.receipt_type, self.email_address, self.email_password)
+                HistoryWindow(self.receipt_no, self.databaseConnection, self.main_menu, self.receipt_type, self.email_address, self.email_password, self.email_host, self.email_port)
             else:
                 messagebox.showerror('Email Invoices', 'All invoices sent out', parent=self)
         else:
@@ -1625,7 +1637,7 @@ class RefundCashOrTransfer(tk.Tk):
 
 
 class Receipt_window(tk.Tk):
-    def __init__(self, invoice_no, connection, main_menu, email_address, email_password, *args, **kwargs):
+    def __init__(self, invoice_no, connection, main_menu, email_address, email_password, email_host, email_port, *args, **kwargs):
         tk.Tk.__init__(self, *args, **kwargs)
         self.invoice_no = invoice_no
         self.report_callback_exception = self.log_unhandled_exception
@@ -1633,6 +1645,8 @@ class Receipt_window(tk.Tk):
         self.databaseConnection = connection
         self.email_address = email_address
         self.email_password = email_password
+        self.email_host = email_host
+        self.email_port = email_port
         try:
             self.invoice_lines = self.databaseConnection.query(f'select '
                                                           f'item.item_code, '
@@ -1740,7 +1754,7 @@ class Receipt_window(tk.Tk):
         self.delete_invoice_button['font'] = button_font
         self.delete_invoice_button.grid(row=5, column=0)
 
-        self.issue_receipt_button = tk.Button(self, text='Issue Receipt', command=lambda: ReceiptCashOrTransfer(self.invoice_data[2], self.invoice_no, connection, self, self.main_menu, self.email_address, self.email_password), width=18)
+        self.issue_receipt_button = tk.Button(self, text='Issue Receipt', command=lambda: ReceiptCashOrTransfer(self.invoice_data[2], self.invoice_no, connection, self, self.main_menu, self.email_address, self.email_password, self.email_host, self.email_port), width=18)
         self.issue_receipt_button['font'] = button_font
         self.issue_receipt_button.grid(row=5, column=1, padx=10)
 
@@ -1769,7 +1783,7 @@ class Receipt_window(tk.Tk):
                     f'Invoice Total: ${self.invoice_data[2]} ',
                     self.email_address,
                     self.email,
-                    self.email_password,
+                    self.email_password, self.email_host, self.email_port,
                     f'{self.invoice_no}.pdf',
                     '.\\config\\invoice_pdfs')
             status = sender.get_status()
@@ -1780,7 +1794,7 @@ class Receipt_window(tk.Tk):
                 self.main_menu.update_tables()
                 messagebox.showinfo('Emailed Invoices', 'Invoice sent successfully', parent=self)
                 self.destroy()
-                Receipt_window(self.invoice_no, self.databaseConnection, self.main_menu, self.email_address, self.email_password)
+                Receipt_window(self.invoice_no, self.databaseConnection, self.main_menu, self.email_address, self.email_password, self.email_host, self.email_port)
             else:
                 messagebox.showerror('Email Failed', 'Invoice failed to be sent. Check email \ncredentials are correct.', parent=self)
 
@@ -1801,6 +1815,8 @@ class ReceiptCashOrTransfer(tk.Tk):
         self.receipt_window = receipt_window
         self.email_address = email
         self.email_password = password
+        self.email_host = email_host
+        self.email_port = email_port
         self.main_menu = main_menu
         tk.Tk.__init__(self, *args, **kwargs)
         self.databaseConnection = connection
@@ -1878,7 +1894,7 @@ class ReceiptCashOrTransfer(tk.Tk):
                             f' See attached your Greater Western 4x4 receipt.\n\n',
                             self.email_address,  # sender
                             self.member_email,  # receiver
-                            self.email_password,  # email password
+                            self.email_password, self.email_host, self.email_port,  # email password
                             f'R{self.current_receipt_no}.pdf', '.\\config\\receipt_pdfs')  # receipt attachment
                     status = sender.get_status()
                     if status == '1':
@@ -2458,13 +2474,15 @@ class IncomeWindow(tk.Tk):
 
 
 class AutoInvoicing(tk.Tk):
-    def __init__(self, connection, main_menu, email_address, email_password, *args, **kwargs):
+    def __init__(self, connection, main_menu, email_address, email_password, email_host, email_port, *args, **kwargs):
         tk.Tk.__init__(self, *args, **kwargs)
         self.main_menu = main_menu
         self.databaseConnection = connection
         self.report_callback_exception = self.log_unhandled_exception
         self.email_address = email_address
         self.email_password = email_password
+        self.email_host = email_host
+        self.email_port = email_port
         self.grid_columnconfigure(0, weight=1)
         self.grid_columnconfigure(1, weight=1)
         self.grid_rowconfigure(0, weight=1)
@@ -2570,7 +2588,7 @@ class AutoInvoicing(tk.Tk):
             email_yesno = messagebox.askyesno('Email Invoices', 'Would you like to send out these invoices via email?',
                                               parent=self)
             if email_yesno:
-                error = EmailProgress(invoice_email_list, self.databaseConnection, self.main_menu, self.email_address, self.email_password)
+                error = EmailProgress(invoice_email_list, self.databaseConnection, self.main_menu, self.email_address, self.email_password, self.email_host, self.email_port)
                 if error.get_error_status() == '1':
                     messagebox.showinfo('Email Invoices', 'All invoices sent out', parent=self.main_menu)
             self.destroy()
@@ -2582,13 +2600,15 @@ class AutoInvoicing(tk.Tk):
 
 
 class EmailProgress(tk.Tk):
-    def __init__(self, email_list, connection, main_menu, email_address, email_password, *args, **kwargs):
+    def __init__(self, email_list, connection, main_menu, email_address, email_password, email_host, email_port, *args, **kwargs):
         tk.Tk.__init__(self, *args, **kwargs)
         self.databaseConnection = connection
         self.report_callback_exception = self.log_unhandled_exception
         self.main_menu = main_menu
         self.email_address = email_address
         self.email_password = email_password
+        self.email_host = email_host
+        self.email_port = email_port
         x = self.winfo_screenwidth()
         y = self.winfo_screenheight()
         self.geometry(str(round(x * 0.3)) + 'x' + str(round(y * 0.2)) + '+' + str(round((-0.3*x + x)/2)) + '+' + str(round((-0.2*y + y)/2)))
@@ -2606,7 +2626,7 @@ class EmailProgress(tk.Tk):
                     'See attached your membership invoice',
                     self.email_address,
                     email[1],
-                    self.email_password,
+                    self.email_password, self.email_host, self.email_port,
                     f'{email[0]}', '.\\config\\invoice_pdfs')
             status = sender.get_status()
             if status == '1':
@@ -3312,6 +3332,8 @@ else:
     settings = [i.split(':') for i in settings]
     settings = dict(settings)
     email_address = settings['email']
+    email_host = settings['email_host']
+    email_port = settings['smtp_port']
     email_password = settings['email_password']
     database_user = settings['db_user']
     database_password = settings['db_password']
@@ -3323,6 +3345,6 @@ else:
     # args = f'mysqldump -u{database_user} -p{database_password} -h{host} --port=3306 --result-file ./db_backup.sql --databases {database_name}'
     # p = Popen(args, shell=False)  # run back up command in silent command window
     databaseConnection = myDb(database_user, database_password, host, database_name)  # initialise db connection
-    app = App(databaseConnection, email_address, email_password)  # initialise app
+    app = App(databaseConnection, email_address, email_password, email_host, email_port)  # initialise app
     app.mainloop()
 

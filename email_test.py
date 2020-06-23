@@ -6,7 +6,7 @@ from email import encoders
 
 
 class Emailer:
-    def __init__(self, subject, body, sender, reciever,  password, attachment_name=None, folder=None):
+    def __init__(self, subject, body, sender, reciever,  password, email_host, email_port, attachment_name=None, folder=None):
         self.password = password
         self.subject = subject
         self.body = body
@@ -32,7 +32,7 @@ class Emailer:
 
         text = message.as_string()
         try:
-            server = smtplib.SMTP(host='smtp.iprimus.com.au', port=587)  # host='smtp.iprimus.com.au'
+            server = smtplib.SMTP(host=email_host, port=email_port)  # host='smtp.iprimus.com.au'
             server.starttls()
             server.login(self.sender_email, self.password)
             server.sendmail(self.sender_email, self.receiver_email, text)
