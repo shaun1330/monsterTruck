@@ -526,7 +526,7 @@ class Members(tk.Frame):
             EditMember(member_no, self.databaseConnection, self)
 
     def update_window(self):
-        self.databaseConnection.reconnect()
+        # self.databaseConnection.reconnect()
         self.table.delete(*self.table.get_children())
         members_table = self.databaseConnection.query('select '
                                                       'member_no, '
@@ -888,7 +888,7 @@ class InvoiceWindow(tk.Tk):
     def submit_invoice_command(self):
             invoice_total = str(self.total)
 
-            self.databaseConnection.reconnect()
+            # self.databaseConnection.reconnect()
             self.current_invoice_no = self.databaseConnection.query('select max(invoice_no)+1 from invoice;')
 
             q = invoice_total.split('.')
@@ -1746,7 +1746,7 @@ class Receipt_window(tk.Tk):
         self.attributes("-topmost", True)
 
     def delete_invoice(self):
-        self.databaseConnection.reconnect()
+        # self.databaseConnection.reconnect()
         warning = messagebox.askyesno('Delete Invoice', 'Are you sure you want to delete this invoice?', parent=self)
         if warning:
             self.databaseConnection.insert(f'delete from invoice_line where invoice_no = {self.invoice_no}')
@@ -2051,7 +2051,7 @@ class ExpenseWindow(tk.Tk):
                 self.new_cat_exists = 0  # set to doesnt exist
 
     def submit(self):
-        self.databaseConnection.reconnect()
+        # self.databaseConnection.reconnect()
         date = self.date_calendar.get()
 
         current_expense_no = self.databaseConnection.query('select max(expense_receipt_no)+1 from expense_receipt;')
@@ -2060,6 +2060,7 @@ class ExpenseWindow(tk.Tk):
         self.cash = self.expense_cash_var.get()
         self.transfer = self.expense_transfer_var.get()
         error = 0
+        new_cat = 0
         if (self.cash == '' or self.cash == 0) and (self.transfer == '' or self.transfer == 0):
             messagebox.showerror('Missing Values', 'Cash and transfer values cannot be both zero', parent=self)
         else:
@@ -2106,64 +2107,82 @@ class ExpenseWindow(tk.Tk):
                                                            f'({current_expense_cat_no}, '
                                                            f'"{self.new_category_var.get()}");')
                             self.databaseConnection.commit()
-                            self.databaseConnection.insert(f'insert into '
-                                                           f'expense_receipt '
-                                                           f'(expense_receipt_no, '
-                                                           f'expense_id, '
-                                                           f'cash_amount, '
-                                                           f'transfer_amount, '
-                                                           f'payment_datetime, '
-                                                           f'expense_notes) '
-                                                           f'values '
-                                                           f'({current_expense_no}, '
-                                                           f'{current_expense_cat_no}, '
-                                                           f'{self.cash}, '
-                                                           f'{self.transfer}, '
-                                                           f'str_to_date("{date}","%d/%m/%Y"), '
-                                                           f'"{notes}");')
-                            self.databaseConnection.commit()
-                            self.main_menu.update_tables()
-                            self.destroy()
-                            messagebox.showinfo('Expense Recorded', 'New expense recorded successfully',
-                                                parent=self.main_menu)
-
+                            if date == datetime.today().strftime(format="%d/%m/%Y"):
+                                self.databaseConnection.insert(f'insert into '
+                                                               f'expense_receipt '
+                                                               f'(expense_receipt_no, '
+                                                               f'expense_id, '
+                                                               f'cash_amount, '
+                                                               f'transfer_amount, '
+                                                               f'payment_datetime, '
+                                                               f'expense_notes) '
+                                                               f'values '
+                                                               f'({current_expense_no}, '
+                                                               f'{current_expense_cat_no}, '
+                                                               f'{self.cash}, '
+                                                               f'{self.transfer}, '
+                                                               f'now(), '
+                                                               f'"{notes}");')
+                            else:
+                                self.databaseConnection.insert(f'insert into '
+                                                               f'expense_receipt '
+                                                               f'(expense_receipt_no, '
+                                                               f'expense_id, '
+                                                               f'cash_amount, '
+                                                               f'transfer_amount, '
+                                                               f'payment_datetime, '
+                                                               f'expense_notes) '
+                                                               f'values '
+                                                               f'({current_expense_no}, '
+                                                               f'{current_expense_cat_no}, '
+                                                               f'{self.cash}, '
+                                                               f'{self.transfer}, '
+                                                               f'str_to_date("{date}","%d/%m/%Y"), '
+                                                               f'"{notes}");')
+                            # self.databaseConnection.commit()
+                            # self.main_menu.update_tables()
+                            # self.destroy()
+                            # messagebox.showinfo('Expense Recorded', 'New expense recorded successfully',
+                            #                     parent=self.main_menu)
+                            new_cat = 1
 
 
                     else:
                         expense_id = self.expense_dict[self.expense_var.get()]
                     try:
-                        if date == datetime.today().strftime(format="%d/%m/%Y"):
-                            self.databaseConnection.insert(f'insert into '
-                                                           f'expense_receipt '
-                                                           f'(expense_receipt_no, '
-                                                           f'expense_id, '
-                                                           f'cash_amount, '
-                                                           f'transfer_amount, '
-                                                           f'payment_datetime, '
-                                                           f'expense_notes) '
-                                                           f'values '
-                                                           f'({current_expense_no}, '
-                                                           f'{expense_id}, '
-                                                           f'{self.cash}, '
-                                                           f'{self.transfer}, '
-                                                           f'now(), '
-                                                           f'"{notes}");')
-                        else:
-                            self.databaseConnection.insert(f'insert into '
-                                                           f'expense_receipt '
-                                                           f'(expense_receipt_no, '
-                                                           f'expense_id, '
-                                                           f'cash_amount, '
-                                                           f'transfer_amount, '
-                                                           f'payment_datetime, '
-                                                           f'expense_notes) '
-                                                           f'values '
-                                                           f'({current_expense_no}, '
-                                                           f'{expense_id}, '
-                                                           f'{self.cash}, '
-                                                           f'{self.transfer}, '
-                                                           f'str_to_date("{date}","%d/%m/%Y"), '
-                                                           f'"{notes}");')
+                        if new_cat == 0:
+                            if date == datetime.today().strftime(format="%d/%m/%Y"):
+                                self.databaseConnection.insert(f'insert into '
+                                                               f'expense_receipt '
+                                                               f'(expense_receipt_no, '
+                                                               f'expense_id, '
+                                                               f'cash_amount, '
+                                                               f'transfer_amount, '
+                                                               f'payment_datetime, '
+                                                               f'expense_notes) '
+                                                               f'values '
+                                                               f'({current_expense_no}, '
+                                                               f'{expense_id}, '
+                                                               f'{self.cash}, '
+                                                               f'{self.transfer}, '
+                                                               f'now(), '
+                                                               f'"{notes}");')
+                            else:
+                                self.databaseConnection.insert(f'insert into '
+                                                               f'expense_receipt '
+                                                               f'(expense_receipt_no, '
+                                                               f'expense_id, '
+                                                               f'cash_amount, '
+                                                               f'transfer_amount, '
+                                                               f'payment_datetime, '
+                                                               f'expense_notes) '
+                                                               f'values '
+                                                               f'({current_expense_no}, '
+                                                               f'{expense_id}, '
+                                                               f'{self.cash}, '
+                                                               f'{self.transfer}, '
+                                                               f'str_to_date("{date}","%d/%m/%Y"), '
+                                                               f'"{notes}");')
                     except Exception as e:
                         print('Error Logged')
                         logger.exception(e)
@@ -2275,7 +2294,7 @@ class IncomeWindow(tk.Tk):
                 self.new_cat_exists = 0  # set to doesnt exist
 
     def submit(self):
-        self.databaseConnection.reconnect()
+        # self.databaseConnection.reconnect()
         date = self.date_calendar.get()
         current_income_no = self.databaseConnection.query('select max(income_receipt_no)+1 from income_receipt;')
         current_income_no = current_income_no[0][0]
@@ -2283,6 +2302,7 @@ class IncomeWindow(tk.Tk):
         self.cash = self.income_cash_var.get()
         self.transfer = self.income_transfer_var.get()
         error = 0
+        new_cat = 0
         if (self.cash == '' or self.cash == 0) and (self.transfer == '' or self.transfer == 0):
             messagebox.showerror('Missing Values', 'Cash and transfer values cannot be both zero', parent=self)
         else:
@@ -2324,61 +2344,81 @@ class IncomeWindow(tk.Tk):
                                                            f'({current_income_cat_no}, '
                                                            f'"{self.new_category_var.get()}");')
                             self.databaseConnection.commit()
-                            self.databaseConnection.insert(f'insert into '
-                                                           f'income_receipt '
-                                                           f'(income_receipt_no, '
-                                                           f'income_id, '
-                                                           f'cash_amount, '
-                                                           f'transfer_amount, '
-                                                           f'payment_datetime, '
-                                                           f'income_notes) '
-                                                           f'values '
-                                                           f'({current_income_no}, '
-                                                           f'{current_income_cat_no}, '
-                                                           f'{self.cash}, '
-                                                           f'{self.transfer}, '
-                                                           f'str_to_date("{date}","%d/%m/%Y"), '
-                                                           f'"{notes}");')
-                            self.databaseConnection.commit()
-                            self.main_menu.update_tables()
-                            self.destroy()
-                            messagebox.showinfo('Income Recorded', 'New income recorded successfully',
-                                                parent=self.main_menu)
+
+                            if date == datetime.today().strftime('%d/%m/%Y'):
+                                self.databaseConnection.insert(f'insert into '
+                                                               f'income_receipt '
+                                                               f'(income_receipt_no, '
+                                                               f'income_id, '
+                                                               f'cash_amount, '
+                                                               f'transfer_amount, '
+                                                               f'payment_datetime, '
+                                                               f'income_notes) '
+                                                               f'values '
+                                                               f'({current_income_no}, '
+                                                               f'{current_income_cat_no}, '
+                                                               f'{self.cash}, '
+                                                               f'{self.transfer}, '
+                                                               f'now(), '
+                                                               f'"{notes}");')
+                            else:
+                                self.databaseConnection.insert(f'insert into '
+                                                               f'income_receipt '
+                                                               f'(income_receipt_no, '
+                                                               f'income_id, '
+                                                               f'cash_amount, '
+                                                               f'transfer_amount, '
+                                                               f'payment_datetime, '
+                                                               f'income_notes) '
+                                                               f'values '
+                                                               f'({current_income_no}, '
+                                                               f'{current_income_cat_no}, '
+                                                               f'{self.cash}, '
+                                                               f'{self.transfer}, '
+                                                               f'str_to_date("{date}","%d/%m/%Y"), '
+                                                               f'"{notes}");')
+                            # self.databaseConnection.commit()
+                            # self.main_menu.update_tables()
+                            # self.destroy()
+                            # messagebox.showinfo('Income Recorded', 'New income recorded successfully',
+                            #                     parent=self.main_menu)
+                            new_cat = 1  # if new cat was recorded, change new cat variable
                     else:
                         income_id = self.income_dict[self.income_var.get()]
                     try:
-                        if date == datetime.today().strftime('%d/%m/%Y'):
-                            self.databaseConnection.insert(f'insert into '
-                                                           f'income_receipt '
-                                                           f'(income_receipt_no, '
-                                                           f'income_id, '
-                                                           f'cash_amount, '
-                                                           f'transfer_amount, '
-                                                           f'payment_datetime, '
-                                                           f'income_notes) '
-                                                           f'values '
-                                                           f'({current_income_no}, '
-                                                           f'{income_id}, '
-                                                           f'{self.cash}, '
-                                                           f'{self.transfer}, '
-                                                           f'now(), '
-                                                           f'"{notes}");')
-                        else:
-                            self.databaseConnection.insert(f'insert into '
-                                                           f'income_receipt '
-                                                           f'(income_receipt_no, '
-                                                           f'income_id, '
-                                                           f'cash_amount, '
-                                                           f'transfer_amount, '
-                                                           f'payment_datetime, '
-                                                           f'income_notes) '
-                                                           f'values '
-                                                           f'({current_income_no}, '
-                                                           f'{income_id}, '
-                                                           f'{self.cash}, '
-                                                           f'{self.transfer}, '
-                                                           f'str_to_date("{date}","%d/%m/%Y"), '
-                                                           f'"{notes}");')
+                        if new_cat == 0:  # if a current cat was used
+                            if date == datetime.today().strftime('%d/%m/%Y'):
+                                self.databaseConnection.insert(f'insert into '
+                                                               f'income_receipt '
+                                                               f'(income_receipt_no, '
+                                                               f'income_id, '
+                                                               f'cash_amount, '
+                                                               f'transfer_amount, '
+                                                               f'payment_datetime, '
+                                                               f'income_notes) '
+                                                               f'values '
+                                                               f'({current_income_no}, '
+                                                               f'{income_id}, '
+                                                               f'{self.cash}, '
+                                                               f'{self.transfer}, '
+                                                               f'now(), '
+                                                               f'"{notes}");')
+                            else:
+                                self.databaseConnection.insert(f'insert into '
+                                                               f'income_receipt '
+                                                               f'(income_receipt_no, '
+                                                               f'income_id, '
+                                                               f'cash_amount, '
+                                                               f'transfer_amount, '
+                                                               f'payment_datetime, '
+                                                               f'income_notes) '
+                                                               f'values '
+                                                               f'({current_income_no}, '
+                                                               f'{income_id}, '
+                                                               f'{self.cash}, '
+                                                               f'{self.transfer}, '
+                                                               f'str_to_date("{date}","%d/%m/%Y"), '
+                                                               f'"{notes}");')
                     except Exception as e:
                         print('Error Logged')
                         string = (f'insert into '
@@ -3278,9 +3318,9 @@ else:
     database_name = settings['db']
     print(settings)
     setting.close()
-    #  backup database on startup
-    args = f'mysqldump -u{database_user} -p{database_password} -h{host} --port=3306 --result-file ./db_backup.sql --databases {database_name}'
-    p = Popen(args, shell=False)  # run back up command in silent command window
+    # #  backup database on startup
+    # args = f'mysqldump -u{database_user} -p{database_password} -h{host} --port=3306 --result-file ./db_backup.sql --databases {database_name}'
+    # p = Popen(args, shell=False)  # run back up command in silent command window
     databaseConnection = myDb(database_user, database_password, host, database_name)  # initialise db connection
     app = App(databaseConnection, email_address, email_password)  # initialise app
     app.mainloop()
