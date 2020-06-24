@@ -36,7 +36,7 @@ class App(tk.Tk):
         # self.menuBar.add_cascade(label='File', menu=filemenu)
         self.screen_height = self.winfo_screenheight()
         self.screen_width = self.winfo_screenwidth()
-        self.title("Monster Truck v1.0.2")
+        self.title("Monster Truck v1.0.3")
         self.geometry(str(self.winfo_screenwidth())+'x'+str(self.winfo_screenheight()))
         self.state('zoomed')
         container = tk.Frame(self)
@@ -208,7 +208,8 @@ class MainMenu(tk.Frame):
         try:
             self.exporter()
         except PermissionError:
-            messagebox.showerror('Members Export Error', 'members_list.xlsx failed to update')
+            messagebox.showerror('Members Export Error', '"members_list.xlsx" failed to update.\n'
+                                                         'Make sure "members_list.xlsx" is not open.')
             # error when file is open already
 
     def exporter(self):
@@ -261,7 +262,7 @@ class MainMenu(tk.Frame):
             c = 1
             r += 1
 
-        workbook.save(filename='members_list.xlsx')
+        workbook.save(filename='.\config\members_list.xlsx')
 
     def send_unsent_invoices(self):
         self.unsent_invoices = self.connect.query('select '
@@ -516,7 +517,7 @@ class Members(tk.Frame):
             c = 1
             r += 1
 
-        workbook.save(filename='members_list.xlsx')
+        workbook.save(filename='.\config\members_list.xlsx')
         messagebox.showinfo('Update Success', 'member_list.xlsx has been successfully updated', parent=self)
 
     def on_double_click(self, a):
@@ -3013,7 +3014,7 @@ class CommitteeReport(tk.Frame):
         plt.figure(dpi=200)
         plt.bar(months, balances, color='grey')
         plt.xticks(rotation=30)
-        plt.savefig('bar_closing')
+        plt.savefig('./config/bar_closing')
 
 
 class CashTransfers(tk.Tk):
