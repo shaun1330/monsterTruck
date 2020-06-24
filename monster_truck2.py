@@ -975,7 +975,7 @@ class InvoiceWindow(tk.Tk):
                         messagebox.showwarning('Unknown Error',
                                                f'An unknown error occurred and has been logged. Report to developer.')
                 self.databaseConnection.commit()
-                invoice_copy.save('.\\invoice_pdfs')
+                invoice_copy.save('.\\config\\invoice_pdfs')
                 print('Invoice created')
                 self.main_menu.update_tables()
                 self.destroy()
@@ -1566,7 +1566,7 @@ class HistoryWindow(tk.Tk):
 
     def view_receipt(self):
         self.attributes("-topmost", False)  # #
-        startfile(f'.\\receipt_pdfs\\R{self.receipt_no}.pdf')
+        startfile(f'.\\config\\receipt_pdfs\\R{self.receipt_no}.pdf')
 
     def send_receipt(self):
         email_yesno = messagebox.askyesno('Email Receipt',
@@ -1955,7 +1955,7 @@ class ReceiptCashOrTransfer(tk.Tk):
                                            f'({self.current_receipt_no}, {self.invoice_no}, {self.cash}, {self.transfer}, str_to_date("{date}","%d/%m/%Y"), "No")')
         self.databaseConnection.commit()
         self.main_menu.update_tables()
-        receipt_gen.save('.\\receipt_pdfs')
+        receipt_gen.save('.\\config\\receipt_pdfs')
         print('Success')
 
     def log_unhandled_exception(self, type, value, traceback):
@@ -2565,7 +2565,7 @@ class AutoInvoicing(tk.Tk):
                 invoice.cityStatePostCode(member[3], member[4], member[5])
                 invoice.invoiceDate(datetime.today().date().strftime('%d/%m/%y'))
                 invoice.invoice_line([1], ['Annual Membership Renewal Fee'], [price], [1], [price])
-                invoice.save('.\\invoice_pdfs')
+                invoice.save('.\\config\\invoice_pdfs')
             email_yesno = messagebox.askyesno('Email Invoices', 'Would you like to send out these invoices via email?',
                                               parent=self)
             if email_yesno:
@@ -3287,7 +3287,7 @@ class ReportPeriod(tk.Tk):
         report.unpaid_invoices(unpaid_invoices)
         report.year_to_date_summary(year_incomes, year_expense)
         report.draw_image()
-        report.save('./committee_reports')
+        report.save('./config/committee_reports')
         self.destroy()
         messagebox.showinfo('Committee Report', 'Committee report was successfully created', parent=self.committee_page)
 
