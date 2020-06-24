@@ -36,7 +36,7 @@ class App(tk.Tk):
         # self.menuBar.add_cascade(label='File', menu=filemenu)
         self.screen_height = self.winfo_screenheight()
         self.screen_width = self.winfo_screenwidth()
-        self.title("Monster Truck v1.0.1")
+        self.title("Monster Truck v1.0.2")
         self.geometry(str(self.winfo_screenwidth())+'x'+str(self.winfo_screenheight()))
         self.state('zoomed')
         container = tk.Frame(self)
