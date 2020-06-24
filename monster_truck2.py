@@ -282,7 +282,9 @@ class MainMenu(tk.Frame):
                                                   'members '
                                                   'on '
                                                   'invoice.member_no = members.member_no '
-                                                  'where invoice_sent = "No";')
+                                                  'where invoice_sent = "No" and '
+                                                  'invoice_no not in '
+                                                  '(select invoice_no from invoice_receipt);')
         if len(self.unsent_invoices) == 0:
             messagebox.showinfo('Send Invoices', 'There are no unsent invoices')
         else:
@@ -1780,12 +1782,7 @@ class Receipt_window(tk.Tk):
                     f'To {self.invoice_data[3]},\n\n'
                     f' See attached your Greater Western 4x4 Invoice.\n\n'
                     f'Invoice Due Date: {self.invoice_duedate}\n'
-                    f'Invoice Total: ${self.invoice_data[2]} ',
-                    self.email_address,
-                    self.email,
-                    self.email_password, self.email_host, self.email_port,
-                    f'{self.invoice_no}.pdf',
-                    '.\\config\\invoice_pdfs')
+                    f'Invoice Total: ${self.invoice_data[2]} ', self.email_address, self.email, self.email_password, self.email_host, self.email_port, attachment_path=f'./config/invoice_pdfs/{self.invoice_no}.pdf', filename=self.invoice_no)
             status = sender.get_status()
             print(status)
             if status == '1':
@@ -1895,7 +1892,7 @@ class ReceiptCashOrTransfer(tk.Tk):
                             self.email_address,  # sender
                             self.member_email,  # receiver
                             self.email_password, self.email_host, self.email_port,  # email password
-                            f'R{self.current_receipt_no}.pdf', '.\\config\\receipt_pdfs')  # receipt attachment
+                            attachment_path=f'./config/receipt_pdfs/R{self.current_receipt_no}.pdf', filename=self.current_receipt_no)  # receipt attachment
                     status = sender.get_status()
                     if status == '1':
                         self.databaseConnection.insert(
@@ -2576,7 +2573,7 @@ class AutoInvoicing(tk.Tk):
                 self.main_menu.update_tables()
                 invoice_email_list.append((invoice_filename, member[-1], member[1]))
                 self.current_invoice_no += 1
-                invoice = InvoiceGenerator(invoice_filename, price ,due_date)
+                invoice = InvoiceGenerator(invoice_filename, price, due_date)
                 invoice.invoiceNo(f'{self.current_invoice_no}')
                 invoice.BankDetails(self.bank_details[0], self.bank_details[1], self.bank_details[2])
                 invoice.memberName(member[1])
@@ -2620,14 +2617,25 @@ class EmailProgress(tk.Tk):
         current_email.pack()
         i = 1
         number_of_members = len(email_list)
+
+        '''
+        email_list contains:
+        - invoice_filemame,
+        - member_email,
+        - member_fullname
+        '''
+
         for email in email_list:
-            sender = Emailer('Greater Western 4x4 Club Membership Invoice',
-                    f'To {email[-1]},\n\n'
-                    'See attached your membership invoice',
-                    self.email_address,
-                    email[1],
-                    self.email_password, self.email_host, self.email_port,
-                    f'{email[0]}', '.\\config\\invoice_pdfs')
+            sender = Emailer(subject='Greater Western 4x4 Club Membership Invoice',
+                            body=f'To {email[-1]},\n\n'
+                            'See attached your membership invoice',
+                            sender=self.email_address,  # treasurer email (sender email)
+                            receiver=email[1],  # recipients email
+                            password=self.email_password,
+                            email_host=self.email_host,
+                            email_port=self.email_port,
+                            attachment_path=f'./config/invoice_pdfs/{email[0]}',
+                            filename=f'{email[0]}')
             status = sender.get_status()
             if status == '1':
                 invoice_no = email[0][:-4]

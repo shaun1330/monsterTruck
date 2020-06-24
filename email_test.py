@@ -6,12 +6,12 @@ from email import encoders
 
 
 class Emailer:
-    def __init__(self, subject, body, sender, reciever,  password, email_host, email_port, attachment_name=None, folder=None):
+    def __init__(self, subject, body, sender, receiver,  password, email_host, email_port, attachment_path=None, filename=None):
         self.password = password
         self.subject = subject
         self.body = body
         self.sender_email = sender
-        self.receiver_email = reciever
+        self.receiver_email = receiver
 
         message = MIMEMultipart()
 
@@ -21,13 +21,12 @@ class Emailer:
 
         message.attach(MIMEText(self.body, 'plain'))
 
-        if attachment_name != None:
-            filename = f'.\\{folder}\\'+ attachment_name
-            attachment = open(filename, 'rb')
+        if attachment_path != None:
+            attachment = open(attachment_path, 'rb')
             part = MIMEBase('application', 'octet_stream')
             part.set_payload(attachment.read())
             encoders.encode_base64(part)
-            part.add_header('Content-Disposition', 'attachment; filename= '+attachment_name)
+            part.add_header('Content-Disposition', 'attachment; filename= '+str(filename))
             message.attach(part)
 
         text = message.as_string()
