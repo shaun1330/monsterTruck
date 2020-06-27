@@ -31,7 +31,7 @@ class Emailer:
 
         text = message.as_string()
         try:
-            server = smtplib.SMTP(host=email_host, port=email_port)  # host='smtp.iprimus.com.au'
+            server = smtplib.SMTP(host=email_host, port=email_port)
             server.starttls()
             server.login(self.sender_email, self.password)
             server.sendmail(self.sender_email, self.receiver_email, text)
@@ -45,8 +45,3 @@ class Emailer:
     def get_status(self):
         return self.status
 
-# Emailer('Email through Python',
-#         'Test',
-#         'shaunyb101@gmail.com',
-#         'shaunsimons93gmail.com'
-#         )

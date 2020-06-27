@@ -177,6 +177,7 @@ if __name__ == "__main__":
     refund_gen.refundDate('01/01/1970')
     refund_gen.streetAdress('10 Hansen Crt')
     refund_gen.cityStatePostCode('Narre Warren', 'VIC', '3805')
+
     refund_gen.save('./')
 
 

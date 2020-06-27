@@ -3,13 +3,14 @@ import logging
 from tkinter.ttk import Treeview, Progressbar, Style
 from invoice_generator_class import InvoiceGenerator
 from receipt_generator_class import ReceiptGenerator
+from refund_generator_class import RefundGenerator
 from commitee_report import CommiteeReportGenerator
 from datetime import datetime
 from dateutil.relativedelta import relativedelta
 import tkinter.font as font
 from tkinter import messagebox
 from tkcalendar import DateEntry
-from os import startfile, system
+from os import startfile
 from re import match
 from database_connection import MydatabaseConnection as myDb
 from email_test import Emailer
@@ -17,23 +18,51 @@ import matplotlib.pyplot as plt
 from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
 from matplotlib.figure import Figure
 from openpyxl import Workbook
-from subprocess import Popen
 
+def log_unhandled_exception(type, value, traceback):
+    logger.exception('Unhandled Exception', exc_info=(type, value, traceback))
+    # messagebox.showerror("Critical Error", 'An unknown error has occurred.\nContact Developer.\n\n'
+    #                                        f'{type,value}')
+
+    width, height = 100, 100
+    top = tk.Toplevel()
+    top.title('Critical Error')
+    top.attributes('-topmost', True)
+
+    x = top.winfo_screenwidth()
+    y = top.winfo_screenheight()
+    a = 0.20
+    b = 0.35
+    top.geometry(str(round(x * a)) +
+                  'x'
+                  + str(round(y * b)) +
+                  '+'
+                  + str(round((-a * x + x) / 2)) +
+                  '+'
+                  + str(round((-b * y + y) / 2)))
+
+    canvas = tk.Canvas(top, width=width, height=height)
+    canvas.pack()
+
+    msg = tk.Message(top, text='An unknown error has occurred.\n Contact Developer. \n\n'
+                               f'{type, value}')
+
+    icon = tk.PhotoImage(file='./config/error_icon_sml.png')
+    canvas.image = icon
+    canvas.create_image(50,50,image=canvas.image)
+
+    msg.pack()
+    button = tk.Button(top, text="Dismiss", command=top.destroy)
+    button.pack()
 
 class App(tk.Tk):
     def __init__(self, connection, email_address, email_password, email_host, email_port, *args, **kwargs):
         tk.Tk.__init__(self, *args, **kwargs)
+        print('Loading App...')
         s = Style()
         s.theme_use('clam')
-        self.report_callback_exception = self.log_unhandled_exception
+        self.report_callback_exception = log_unhandled_exception
         self.configure(background='black')
-        # self.menuBar = tk.Menu(self)
-        # self.config(menu=self.menuBar)
-        # filemenu = tk.Menu(self.menuBar, tearoff=0)
-        # filemenu.add_command(label='Invoicing', command=InvoiceWindow)
-        # # filemenu.add_command(label='Set Starting Balance', command=lambda: SetBalance(connection))
-        # filemenu.add_command(label="Exit", command=self.destroy)
-        # self.menuBar.add_cascade(label='File', menu=filemenu)
         self.screen_height = self.winfo_screenheight()
         self.screen_width = self.winfo_screenwidth()
         self.title("Monster Truck v1.0.3")
@@ -46,23 +75,21 @@ class App(tk.Tk):
 
         self.frames = {}
         for F in (MainMenu, Members, CommitteeReport):
+            print(f'Loading {F.__name__}')
             if F == MainMenu:
                 frame = F(container, self, connection=connection, email_address=email_address,
                           email_password=email_password,
                           email_host=email_host,
                           email_port=email_port)
+
                 self.frames[F] = frame
                 frame.grid(row=0, column=0, sticky='NSEW')
             else:
                 frame = F(container, self, connection=connection)
                 self.frames[F] = frame
                 frame.grid(row=0, column=0, sticky='NSEW')
+            print(f'{F.__name__} Loaded')
         self.show_frame(MainMenu)
-
-    def log_unhandled_exception(self, type, value, traceback):
-        logger.exception('Unhandled Exception', exc_info=(type, value, traceback))
-        messagebox.showerror("Critical Error", 'An unknown error has occurred.\nContact Developer.\n\n'
-                                               f'{type,value}')
 
     def show_frame(self, page):
         frame = self.frames[page]
@@ -92,7 +119,6 @@ class MainMenu(tk.Frame):
         self.grid_rowconfigure(6, weight=1)
         self.grid_rowconfigure(7, weight=1)
         self.grid_rowconfigure(8, weight=1)
-
         self.unsent_invoices = self.connect.query('select '
                                                   'concat(invoice_no,".pdf") as filename, '
                                                   'email '
@@ -175,7 +201,6 @@ class MainMenu(tk.Frame):
         history_table_label = tk.Label(self, text='Transactions History')
         history_table_label.config(font="Courier, 14")
         history_table_label.grid(row=0, column=2, sticky='N')
-
         self.history_table = Treeview(self, height=35)
         self.history_table["columns"] = ('code',
                                          'date',
@@ -212,6 +237,7 @@ class MainMenu(tk.Frame):
 
         self.populate_invoice_table()
         self.populate_history_table()
+
         try:
             self.exporter()
         except PermissionError:
@@ -220,6 +246,7 @@ class MainMenu(tk.Frame):
             # error when file is open already
 
     def exporter(self):
+        print(f'Exporting member data to members_list.xlsx{"."*10}', end='')
         members_info = self.connect.query('select '
                                                      'member_no, '
                                                      'member_fname, '
@@ -270,6 +297,7 @@ class MainMenu(tk.Frame):
             r += 1
 
         workbook.save(filename='.\config\members_list.xlsx')
+        print(" members_list.xlsx saved")
 
     def send_unsent_invoices(self):
         self.unsent_invoices = self.connect.query('select '
@@ -339,13 +367,18 @@ class MainMenu(tk.Frame):
                     self.history_table.insert('', 'end', text='Cash out', values=row)
                 elif row[2] < 0:
                     self.history_table.insert('', 'end', text='Deposit', values=row)
-            elif row[0] > 70000:
+            elif row[0] > 70000 and row[0] < 90000:
                 self.history_table.insert('', 'end', text='Expense', values=row)
+            elif row[0] > 90000:
+                self.history_table.insert('', 'end', text='Refund', value=row)
 
     def create_temp_table(self):
         self.connect.insert('set @cashSum := 0;')
         self.connect.insert('set @bankSum := 0;')
+        print(f'Dropping payment_history{"."*10}', end='')
         self.connect.insert('drop table if exists payment_history;')
+        print('Dropped')
+        print(f'Creating new payment_history{"."*10}', end='')
         self.connect.insert('create table payment_history '
                             'select '
                             'n, payment_datetime, '
@@ -376,8 +409,15 @@ class MainMenu(tk.Frame):
                             'payment_datetime, '
                             'cash_amount, '
                             'transfer_amount '
-                            'from income_receipt)) as hist '
+                            'from income_receipt) '
+                            'union all'
+                            ' (select refund_no as n, '
+                            'payment_datetime, '
+                            'cash_amount*-1, '
+                            'transfer_amount*-1 '
+                            'from refunds)) as hist '
                             'order by payment_datetime;')
+        print('Done')
 
     def on_double_click_invoice(self, a):
         item = self.invoices_table.selection()
@@ -561,7 +601,7 @@ class Members(tk.Frame):
 class EditMember(tk.Tk):
     def __init__(self, member_no, connection, member_page, *args, **kwargs):
         tk.Tk.__init__(self, *args, **kwargs)
-        self.report_callback_exception = self.log_unhandled_exception
+        self.report_callback_exception = log_unhandled_exception
         self.member_page = member_page
         self.databaseConnection = connection
         self.member_no = member_no
@@ -736,17 +776,12 @@ class EditMember(tk.Tk):
             self.member_page.update_window()
             self.destroy()
 
-    def log_unhandled_exception(self, type, value, traceback):
-        logger.exception('Unhandled Exception', exc_info=(type, value, traceback))
-        messagebox.showerror("Critical Error", 'An unknown error has occurred.\nContact Developer.\n\n'
-                                               f'{type,value}')
-
 
 class InvoiceWindow(tk.Tk):
     def __init__(self, connection, main_menu, *args, **kwargs ):
         tk.Tk.__init__(self, *args, **kwargs)
         self.main_menu = main_menu
-        self.report_callback_exception = self.log_unhandled_exception
+        self.report_callback_exception = log_unhandled_exception
         self.databaseConnection = connection
         self.grid_columnconfigure(0, weight=1)
         self.grid_columnconfigure(1, weight=1)
@@ -994,11 +1029,6 @@ class InvoiceWindow(tk.Tk):
                 self.destroy()
                 messagebox.showinfo('Invoice Created', 'Invoice successfully created', parent=self.main_menu)
 
-    def log_unhandled_exception(self, type, value, traceback):
-        logger.exception('Unhandled Exception', exc_info=(type, value, traceback))
-        messagebox.showerror("Critical Error", 'An unknown error has occurred.\nContact Developer.\n\n'
-                                               f'{type,value}')
-
 
 class NewMemberPage(tk.Tk):
     def __init__(self, connection, member_page, *args, **kwargs):
@@ -1006,7 +1036,7 @@ class NewMemberPage(tk.Tk):
         height = self.winfo_screenheight()
         width = self.winfo_screenwidth()
         self.member_page = member_page
-        self.report_callback_exception = self.log_unhandled_exception
+        self.report_callback_exception = log_unhandled_exception
 
         self.grid_columnconfigure(0, weight=1)
         self.grid_columnconfigure(1, weight=1)
@@ -1197,18 +1227,14 @@ class NewMemberPage(tk.Tk):
         else:
             messagebox.showwarning('Format Error', f'The following fields need to be numeric:\n\n{error_str}')
 
-    def log_unhandled_exception(self, type, value, traceback):
-        logger.exception('Unhandled Exception', exc_info=(type, value, traceback))
-        messagebox.showerror("Critical Error", 'An unknown error has occurred.\nContact Developer.\n\n'
-                                               f'{type,value}')
-
 
 class HistoryWindow(tk.Tk):
     def __init__(self, receipt_no, connection, main_menu, type, email_address, email_password, email_host, email_port,*args, **kwargs):
         tk.Tk.__init__(self, *args, **kwargs)
         state = 'on'
-        self.report_callback_exception = self.log_unhandled_exception
+        self.report_callback_exception = log_unhandled_exception
         self.receipt_no = int(receipt_no)
+        print(self.receipt_no)
         self.main_menu = main_menu
         self.databaseConnection = connection
         self.receipt_type = type
@@ -1245,14 +1271,18 @@ class HistoryWindow(tk.Tk):
                 self.invoice_data = self.databaseConnection.query(f'select '
                                                                   f'invoice_receipt_no, ' 
                                                                   f'invoice.invoice_no, '
-                                                                  f'payment_datetime, '
-                                                                  f'invoice_date, '
+                                                                  f'date_format(payment_datetime, "%d-%m-%Y %T"), '
+                                                                  f'date_format(invoice_date, "%d-%m-%Y %T"), '
                                                                   f'concat_ws(" ", member_fname, member_lname), '
                                                                   f'cash_amount, '
                                                                   f'transfer_amount, '
                                                                   f'invoice_total,'
                                                                   f'email, '
-                                                                  f'receipt_sent '
+                                                                  f'receipt_sent, '
+                                                                  f'street_address, '
+                                                                  f'state, '
+                                                                  f'postcode,'
+                                                                  f'suburb '
                                                                   f'from '
                                                                   f'invoice_receipt '
                                                                   f'join '
@@ -1289,29 +1319,37 @@ class HistoryWindow(tk.Tk):
                     state = 'off'
                     self.destroy()
                 if state == 'on':
+                    self.receipt_data = {'receipt_no': self.invoice_data[0], 'invoice_no': self.invoice_data[1],
+                                         'payment_datetime': self.invoice_data[2],
+                                         'issue_datetime': self.invoice_data[3], 'fullname': self.invoice_data[4],
+                                         'cash_amount': self.invoice_data[5], 'transfer_amount': self.invoice_data[6],
+                                         'invoice_total': self.invoice_data[7], 'member_email': self.invoice_data[8],
+                                         'email_sent': self.invoice_data[9], 'street_address': self.invoice_data[10],
+                                         'state': self.invoice_data[11], 'postcode': self.invoice_data[12],
+                                         'suburb': self.invoice_data[13]}
 
                     self.invoice_heading = tk.Label(self, text=f'Invoice Receipt: {self.receipt_no}', font='Courier 30 bold')
                     self.invoice_heading.grid(row=0, columnspan=3, sticky='w')
 
-                    self.member_name_label = tk.Label(self, text=f'Member Name: {self.invoice_data[4]}', font='Courier 15 bold')
+                    self.member_name_label = tk.Label(self, text=f'Member Name: {self.receipt_data["fullname"]}', font='Courier 15 bold')
                     self.member_name_label.grid(row=1, columnspan=3, sticky='nw', padx=10)
 
-                    self.issue_date_label = tk.Label(self, text=f'Issue Date: {self.invoice_data[3]}', font='Courier 15 bold')
+                    self.issue_date_label = tk.Label(self, text=f'Issue Date: {self.receipt_data["issue_datetime"]}', font='Courier 15 bold')
                     self.issue_date_label.grid(row=2, columnspan=3, sticky='nw', padx=10)
 
-                    self.payment_date_label = tk.Label(self, text=f'Payment Date: {self.invoice_data[2]}', font='Courier 15 bold')
+                    self.payment_date_label = tk.Label(self, text=f'Payment Date: {self.receipt_data["payment_datetime"]}', font='Courier 15 bold')
                     self.payment_date_label.grid(row=3, columnspan=3, sticky='nw', padx=10)
 
-                    self.total_label = tk.Label(self, text=f'Cash Amount: ${self.invoice_data[5]} ', font='Courier 15 bold')
+                    self.total_label = tk.Label(self, text=f'Cash Amount: ${self.receipt_data["cash_amount"]} ', font='Courier 15 bold')
                     self.total_label.grid(row=4, columnspan=2, sticky='w', padx=10)
 
-                    self.total_label = tk.Label(self, text=f'Transfer Amount: ${self.invoice_data[6]} ', font='Courier 15 bold')
+                    self.total_label = tk.Label(self, text=f'Transfer Amount: ${self.receipt_data["transfer_amount"]} ', font='Courier 15 bold')
                     self.total_label.grid(row=5, columnspan=2, sticky='w', padx=10)
 
-                    self.total_label = tk.Label(self, text=f'Total: ${self.invoice_data[7]} ', font='Courier 15 bold')
+                    self.total_label = tk.Label(self, text=f'Total: ${self.receipt_data["invoice_total"]} ', font='Courier 15 bold')
                     self.total_label.grid(row=6, columnspan=2, sticky='w', padx=10)
 
-                    if self.invoice_data[-1] == 'No':
+                    if self.receipt_data["email_sent"] == 'No':
                         self.send_invoice_button = tk.Button(self, text='Send Receipt', command=self.send_receipt)
                         button_font = font.Font(family='Courier', size=15, weight='bold')
                         self.send_invoice_button['font'] = button_font
@@ -1358,7 +1396,7 @@ class HistoryWindow(tk.Tk):
 
                     self.attributes("-topmost", True)  # #
                 else:
-                    messagebox.showerror('Error', 'Error occurred. Report to developer .')
+                    messagebox.showerror('Error', 'Error occurred. Report to developer.')
             else:
                 messagebox.showerror('Error', 'Error occurred. Report to developer.')
         elif self.receipt_no > 30000 and self.receipt_no < 40000:  # income history
@@ -1477,7 +1515,7 @@ class HistoryWindow(tk.Tk):
             self.delete_transfer_button = tk.Button(self, text='Delete', command=self.delete_transfer_record)
             self.delete_transfer_button['font'] = button_font
             self.delete_transfer_button.grid(row=4, columnspan=3)
-        elif self.receipt_no > 70000:  # expense history
+        elif self.receipt_no > 70000 and self.receipt_no < 90000:  # expense history
             x = self.winfo_screenwidth()
             y = self.winfo_screenheight()
             a = 0.45
@@ -1540,6 +1578,154 @@ class HistoryWindow(tk.Tk):
             self.delete_button.grid(row=7, columnspan=3)
 
             self.attributes("-topmost", True)
+        elif self.receipt_no > 90000:
+            self.grid_columnconfigure(0, weight=1)
+            self.grid_columnconfigure(1, weight=1)
+            self.grid_columnconfigure(2, weight=1)
+            self.grid_rowconfigure(0, weight=1)
+            self.grid_rowconfigure(1, weight=1)
+            self.grid_rowconfigure(2, weight=1)
+            self.grid_rowconfigure(3, weight=1)
+            self.grid_rowconfigure(4, weight=1)
+            self.grid_rowconfigure(5, weight=1)
+            self.grid_rowconfigure(6, weight=1)
+            self.grid_rowconfigure(7, weight=1)
+            self.grid_rowconfigure(8, weight=1)
+            self.grid_rowconfigure(9, weight=1)
+            x = self.winfo_screenwidth()
+            y = self.winfo_screenheight()
+            a = 0.45
+            b = 0.65
+            self.geometry(str(round(x * a)) +
+                          'x'
+                          + str(round(y * b)) +
+                          '+'
+                          + str(round((-a * x + x) / 2)) +
+                          '+'
+                          + str(round((-b * y + y) / 2)))
+            try:
+                self.invoice_data = self.databaseConnection.query(f'select '
+                                                                  f'refunds.invoice_receipt_no, '
+                                                                  f'invoice_receipt.invoice_no, '
+                                                                  f'refund_no, '
+                                                                  f'date_format(invoice_receipt.payment_datetime, "%d-%m-%Y %T"), '
+                                                                  f'date_format(invoice_date, "%d-%m-%Y %T"), '
+                                                                  f'date_format(refunds.payment_datetime, "%d-%m-%Y %T"), '
+                                                                  f'concat_ws(" ", member_fname, member_lname), '
+                                                                  f'invoice_receipt.cash_amount, '
+                                                                  f'invoice_receipt.transfer_amount, '
+                                                                  f'invoice_total,'
+                                                                  f'email, '
+                                                                  f'refund_sent, '
+                                                                  f'refunds.cash_amount, '
+                                                                  f'refunds.transfer_amount '
+                                                                  f'from '
+                                                                  f'refunds '
+                                                                  f'join invoice_receipt on refunds.invoice_receipt_no = invoice_receipt.invoice_receipt_no '
+                                                                  f'join invoice on invoice_receipt.invoice_no = invoice.invoice_no '
+                                                                  f'join members on invoice.member_no = members.member_no '
+                                                                  f'where '
+                                                                  f'refunds.refund_no = {self.receipt_no};')
+            except Exception as e:
+                self.destroy()
+                state = 'off'
+                logger.exception(e)
+            if state == 'on':
+                self.invoice_data = self.invoice_data[0]
+                try:
+                    self.invoice_line = self.databaseConnection.query(f'select '
+                                                                      f'item.item_code, '
+                                                                      f'item_description, '
+                                                                      f'invoice_item_value, '
+                                                                      f'item_qty, '
+                                                                      f'item_qty*invoice_item_value '
+                                                                      f'from '
+                                                                      f'invoice_line '
+                                                                      f'join '
+                                                                      f'item '
+                                                                      f'on '
+                                                                      f'invoice_line.item_code = item.item_code '
+                                                                      f'where invoice_no = {self.invoice_data[1]} ;')
+                except:
+                    state = 'off'
+                    self.destroy()
+                if state == 'on':
+                    self.receipt_data = {'receipt_no': self.invoice_data[0], 'invoice_no': self.invoice_data[1],
+                                         'payment_datetime': self.invoice_data[3], 'refund_no' : self.invoice_data[2],
+                                         'issue_datetime': self.invoice_data[4], 'fullname': self.invoice_data[6],
+                                         'cash_amount': self.invoice_data[7], 'transfer_amount': self.invoice_data[8],
+                                         'invoice_total': self.invoice_data[9], 'member_email': self.invoice_data[10],
+                                         'email_sent': self.invoice_data[11], 'refund_datetime': self.invoice_data[5],
+                                         'refund_cash': self.invoice_data[12], 'refund_transfer':self.invoice_data[13]}
+
+                    self.invoice_heading = tk.Label(self, text=f'Refund No: {self.receipt_no}',
+                                                    font='Courier 30 bold')
+                    self.invoice_heading.grid(row=0, columnspan=3, sticky='w')
+
+                    self.member_name_label = tk.Label(self, text=f'Member Name: {self.receipt_data["fullname"]}',
+                                                      font='Courier 15 bold')
+                    self.member_name_label.grid(row=1, columnspan=3, sticky='nw', padx=10)
+
+                    self.member_name_label = tk.Label(self, text=f'Receipt No: {self.receipt_data["receipt_no"]}',
+                                                      font='Courier 15 bold')
+                    self.member_name_label.grid(row=2, columnspan=3, sticky='nw', padx=10)
+
+                    self.issue_date_label = tk.Label(self, text=f'Refund Date: {self.receipt_data["refund_datetime"]}',
+                                                     font='Courier 15 bold')
+                    self.issue_date_label.grid(row=3, columnspan=3, sticky='nw', padx=10)
+
+                    self.total_label = tk.Label(self, text=f'Refund Cash Amount: ${self.receipt_data["refund_cash"]} ',
+                                                font='Courier 15 bold')
+                    self.total_label.grid(row=4, columnspan=2, sticky='w', padx=10)
+
+                    self.total_label = tk.Label(self, text=f'Refund Transfer Amount: ${self.receipt_data["refund_transfer"]} ',
+                                                font='Courier 15 bold')
+                    self.total_label.grid(row=5, columnspan=2, sticky='w', padx=10)
+
+                    self.total_label = tk.Label(self, text=f'Total: ${self.receipt_data["invoice_total"]} ',
+                                                font='Courier 15 bold')
+                    self.total_label.grid(row=6, columnspan=2, sticky='w', padx=10)
+
+                    if self.receipt_data["email_sent"] == 'no':
+                        self.send_invoice_button = tk.Button(self, text='Send Refund', command=self.send_refund)
+                        button_font = font.Font(family='Courier', size=15, weight='bold')
+                        self.send_invoice_button['font'] = button_font
+                        self.send_invoice_button.grid(row=6, column=2)
+                    else:
+                        self.send_invoice_button = tk.Button(self, text='Resend Refund', command=self.send_refund)
+                        button_font = font.Font(family='Courier', size=15, weight='bold')
+                        self.send_invoice_button['font'] = button_font
+                        self.send_invoice_button.grid(row=6, column=2)
+
+                    self.receipt_table = Treeview(self)
+                    self.receipt_table["columns"] = ('item_desc', 'unit_price', 'qty', 'subtotal')
+                    self.receipt_table.column('#0', width=round(self.winfo_screenwidth() * 0.05), minwidth=50,
+                                              stretch=tk.NO)
+                    self.receipt_table.column('item_desc', width=round(self.winfo_screenwidth() * 0.12), minwidth=50,
+                                              stretch=tk.NO)
+                    self.receipt_table.column('unit_price', width=round(self.winfo_screenwidth() * 0.07), minwidth=50,
+                                              stretch=tk.NO)
+                    self.receipt_table.column('qty', width=round(self.winfo_screenwidth() * 0.06), minwidth=50,
+                                              stretch=tk.NO)
+                    self.receipt_table.column('subtotal', width=round(self.winfo_screenwidth() * 0.06), minwidth=50,
+                                              stretch=tk.NO)
+
+                    self.receipt_table.heading('#0', text="Item Code")
+                    self.receipt_table.heading('item_desc', text="Item Description")
+                    self.receipt_table.heading('unit_price', text="Unit Price")
+                    self.receipt_table.heading('qty', text="QTY")
+                    self.receipt_table.heading('subtotal', text="Sub Total")
+
+                    self.receipt_table.grid(row=7, columnspan=3, pady=(0, 10))
+
+                    for row in self.invoice_line:
+                        self.receipt_table.insert('', 'end', text=row[0], values=row[1:])
+
+                    self.attributes("-topmost", True)  # #
+                else:
+                    messagebox.showerror('Error', 'Error occurred. Report to developer.')
+            else:
+                messagebox.showerror('Error', 'Error occurred. Report to developer.')
 
     def delete_transfer_record(self):
         delete_yesno = messagebox.askyesno('Delete Transfer', 'Are you sure you want to delete this transfer record?', parent=self)
@@ -1550,16 +1736,37 @@ class HistoryWindow(tk.Tk):
             messagebox.showinfo('Delete Transfer', 'Transfer record deleted successfully', parent=self.main_menu)
 
     def refund_invoice(self):
-        RefundCashOrTransfer(self.receipt_no, self.databaseConnection, self.main_menu)
+        print(self.receipt_no)
+        refunded = self.databaseConnection.query(f'select invoice_receipt_no from refunds where invoice_receipt_no = {self.receipt_no}')
+        print(len(refunded))
+        if len(refunded) != 0:
+            refund_data = self.databaseConnection.query(f'select '
+                                                        f'refund_no, '
+                                                        f'cash_amount+transfer_amount, '
+                                                        f'payment_datetime '
+                                                        f'from '
+                                                        f'refunds where invoice_receipt_no = {self.receipt_no}')
+            refund_data = refund_data[0]
+            messagebox.showwarning('Already Refunded', f'Invoice no {self.receipt_data["invoice_no"]} (${refund_data[1]}) '
+                                                       f'has already been refunded at {refund_data[2]}.', parent=self)
+        else:
+            RefundCashOrTransfer(self.receipt_no, self.databaseConnection, self.main_menu, self.receipt_data, self.invoice_line, self)
 
     def delete_receipt(self):
-        delete_yesno = messagebox.askyesno('Delete Receipt', 'Are you sure you want to delete this receipt?', parent=self)
-        if delete_yesno:
-            self.databaseConnection.insert(f'delete from invoice_receipt where invoice_receipt_no = {self.receipt_no}')
-            self.databaseConnection.commit()
-            self.main_menu.update_tables()
-            self.destroy()
-            messagebox.showinfo('Receipt Deleted', 'Invoice receipt record deleted.', parent=self.main_menu)
+        refunded = self.databaseConnection.query(
+            f'select refund_no, invoice_receipt_no from refunds where invoice_receipt_no = {self.receipt_no}')
+        if len(refunded) != 0:
+            messagebox.showwarning("Receipt already refunded", f"Cannot delete receipt no {self.receipt_no} "
+                                                               f"because it has already been refunded. "
+                                                               f"(Refund no: {refunded[0][0]}) ", parent=self)
+        else:
+            delete_yesno = messagebox.askyesno('Delete Receipt', 'Are you sure you want to delete this receipt?', parent=self)
+            if delete_yesno:
+                self.databaseConnection.insert(f'delete from invoice_receipt where invoice_receipt_no = {self.receipt_no}')
+                self.databaseConnection.commit()
+                self.main_menu.update_tables()
+                self.destroy()
+                messagebox.showinfo('Receipt Deleted', 'Invoice receipt record deleted.', parent=self.main_menu)
 
     def delete_income(self):
         delete_yesno = messagebox.askyesno('Delete Income Entry', 'Are you sure you want to delete this entry?', parent=self)
@@ -1585,17 +1792,17 @@ class HistoryWindow(tk.Tk):
 
     def send_receipt(self):
         email_yesno = messagebox.askyesno('Email Receipt',
-                                          f'Would you like to send out this invoice to \n{self.invoice_data[-2]}?',
+                                          f'Would you like to send out this invoice to \n{self.receipt_data["member_email"]}?',
                                           parent=self)
         if email_yesno:
-            print(f'sending receipt to {self.invoice_data[-2]}')
+            print(f'sending receipt to {self.receipt_data["email_sent"]}')
             sender = Emailer('Greater Western 4x4 Club Receipt',  # subject
-                    f'To {self.invoice_data[4]},\n\n'  # body
+                    f'To {self.receipt_data["fullname"]},\n\n'  # body
                     f' See attached your Greater Western 4x4 receipt.\n\n',
                     self.email_address,  # sender
-                    self.invoice_data[-2],  # receiver
+                    self.receipt_data["member_email"],  # receiver
                     self.email_password, self.email_host, self.email_port,  # email password
-                    f'R{self.receipt_no}.pdf', '.\\config\\receipt_pdfs')  # receipt attachment
+                    attachment_path=f'./config/receipt_pdfs/R{self.receipt_no}.pdf', filename=f'R{self.receipt_no}.pdf')  # receipt attachment
             status = sender.get_status()
             if status == '1':
                 self.databaseConnection.insert(
@@ -1606,24 +1813,57 @@ class HistoryWindow(tk.Tk):
                 self.destroy()
                 HistoryWindow(self.receipt_no, self.databaseConnection, self.main_menu, self.receipt_type, self.email_address, self.email_password, self.email_host, self.email_port)
             else:
-                messagebox.showerror('Email Invoices', 'All invoices sent out', parent=self)
+                messagebox.showerror('Email failure', 'Email failed to send.', parent=self)
         else:
             print('Cancelled')
 
-    def log_unhandled_exception(self, type, value, traceback):
-        logger.exception('Unhandled Exception', exc_info=(type, value, traceback))
-        messagebox.showerror("Critical Error", 'An unknown error has occurred.\nContact Developer.\n\n'
-                                               f'{type,value}')
+    def send_refund(self):
+        email_yesno = messagebox.askyesno('Email Refund',
+                                          f'Would you like to send out this refund receipt to \n{self.receipt_data["member_email"]}?',
+                                          parent=self)
+        if email_yesno:
+            print(f'sending refund receipt to {self.receipt_data["member_email"]}')
+            sender = Emailer('Greater Western 4x4 Club Refund Receipt ',  # subject
+                             f'To {self.receipt_data["fullname"]},\n\n'  # body
+                             f' See attached your Greater Western 4x4 refund receipt.\n\n',
+                             self.email_address,  # sender
+                             self.receipt_data["member_email"],  # receiver
+                             self.email_password, self.email_host, self.email_port,  # email password
+                             attachment_path=f'./config/refund_pdfs/{self.receipt_no}.pdf',
+                             filename=f'{self.receipt_no}.pdf')  # receipt attachment
+            status = sender.get_status()
+            if status == '1':
+                self.databaseConnection.insert(
+                    f'update refunds set refund_sent = "yes" where refund_no = {self.receipt_no}')
+                self.databaseConnection.commit()
+                self.main_menu.update_tables()
+                messagebox.showinfo('Emailed Receipt', 'Receipt sent successfully.', parent=self)
+                self.destroy()
+                HistoryWindow(self.receipt_no, self.databaseConnection, self.main_menu, self.receipt_type,
+                              self.email_address, self.email_password, self.email_host, self.email_port)
+            else:
+                messagebox.showerror('Email failure', 'Email failed to send', parent=self)
+        else:
+            print('Cancelled')
 
 
 class RefundCashOrTransfer(tk.Tk):
-    def __init__(self, invoice_no, connection, main_menu, *args, **kwargs):
+    def __init__(self, receipt_no, connection, main_menu, invoice_data, invoice_line, history_window,  *args, **kwargs):
         tk.Tk.__init__(self, *args, **kwargs)
         self.attributes("-topmost", True)
-        self.invoice_no = invoice_no
-        self.report_callback_exception = self.log_unhandled_exception
+        self.invoice_no = receipt_no
+        self.report_callback_exception = log_unhandled_exception
         self.main_menu = main_menu
         self.databaseConnection = connection
+        self.receipt_data = invoice_data
+        self.receipt_line = invoice_line
+        self.history_window = history_window
+        self.grid_columnconfigure(0, weight=1)
+        self.grid_columnconfigure(1, weight=1)
+        self.grid_columnconfigure(2, weight=1)
+        self.grid_rowconfigure(0, weight=1)
+        self.grid_rowconfigure(1, weight=1)
+        self.grid_rowconfigure(2, weight=1)
         x = self.winfo_screenwidth()
         y = self.winfo_screenheight()
         a = 0.3
@@ -1632,17 +1872,112 @@ class RefundCashOrTransfer(tk.Tk):
             round((-b * y + y) / 2)))
         self.title('Invoice Refund')
 
-    def log_unhandled_exception(self, type, value, traceback):
-        logger.exception('Unhandled Exception', exc_info=(type, value, traceback))
-        messagebox.showerror("Critical Error", 'An unknown error has occurred.\nContact Developer.\n\n'
-                                               f'{type,value}')
+        self.heading = tk.Label(self, text='Refund', font='Courier 25 bold')
+        self.heading.grid(row=0, column=1)
+
+        self.refund_type_variable = tk.StringVar(self)
+        self.refund_type_variable.set(None)
+        cash_button = tk.Radiobutton(self, text='Cash Refund',
+                                     variable=self.refund_type_variable, value='cash', anchor='s')
+        cash_button.grid(row=1, column=0)
+
+        transfer_button = tk.Radiobutton(self, text='Transfer Refund',
+                                         variable=self.refund_type_variable, value='transfer', anchor='s')
+        transfer_button.grid(row=1, column=2)
+
+        self.cancel_button = tk.Button(self, text='Cancel', command=self.destroy)
+        self.cancel_button.grid(row=2, column=0, sticky='E')
+
+        self.submit_button = tk.Button(self, text='Submit', command=self.submit_refund)
+        self.submit_button.grid(row=2, column=2, sticky='W')
+
+    def submit_refund(self):
+        selected_refund_type = self.refund_type_variable.get()
+        if selected_refund_type != 'None':
+            answer = messagebox.askyesno('Refund',
+                                         f'Are you sure you want to refund ${self.receipt_data["invoice_total"]}\n '
+                                         f'to {self.receipt_data["fullname"]} via {selected_refund_type}?',
+                                         parent=self)
+            if answer:
+                current_refund_no = self.databaseConnection.query(f'select auto_increment from '
+                                                                  f'information_schema.tables '
+                                                                  f'where table_schema = "{database_name}" '
+                                                                  f'and table_name = "refunds";')
+                if selected_refund_type == 'cash':
+                    self.cash_refund = self.receipt_data['invoice_total']
+                    self.transfer_refund = 0
+                else:
+                    self.cash_refund = 0
+                    self.transfer_refund = self.receipt_data['invoice_total']
+
+                current_refund_no = current_refund_no[0][0]
+
+                today = datetime.today().strftime(format='%d-%m-%Y')
+                refund_pdf = RefundGenerator(pdf_name=f'{current_refund_no}.pdf',
+                                             invoice_total=self.receipt_data['invoice_total'],
+                                             cash_paid=self.receipt_data['cash_amount'],
+                                             transfer_paid=self.receipt_data['transfer_amount'],
+                                             amount_paid=self.receipt_data['invoice_total'],
+                                             amount_refunded=self.receipt_data['invoice_total'],
+                                             cash_or_transfer=selected_refund_type.capitalize())
+
+                item_codes = [c[0] for c in self.receipt_line]
+                item_desc = [c[1] for c in self.receipt_line]
+                item_qty = [c[3] for c in self.receipt_line]
+                item_value = [c[2] for c in self.receipt_line]
+                item_subtotal = [c[4] for c in self.receipt_line]
+
+                refund_pdf.invoice_line(item_codes=item_codes,
+                                        item_descs=item_desc,
+                                        item_prices=item_value,
+                                        qtys=item_qty,
+                                        subtotals=item_subtotal)
+                refund_pdf.memberName(self.receipt_data['fullname'])
+                refund_pdf.refundNo(current_refund_no)
+                refund_pdf.refundDate(today)
+                refund_pdf.streetAdress(self.receipt_data['street_address'])
+                refund_pdf.cityStatePostCode(self.receipt_data['suburb'],
+                                             self.receipt_data['state'],
+                                             self.receipt_data['postcode'])
+                if not self.databaseConnection.in_transaction:
+                    self.databaseConnection.start_transaction()
+                error = 0
+                try:
+                    self.databaseConnection.insert(f'insert into refunds ('
+                                                   f'invoice_receipt_no, '
+                                                   f'cash_amount, '
+                                                   f'transfer_amount, '
+                                                   f'payment_datetime) values ('
+                                                   f'{self.receipt_data["receipt_no"]}, '
+                                                   f'{self.cash_refund}, '
+                                                   f'{self.transfer_refund}, '
+                                                   f'now())')
+                except Exception as e:
+                    self.databaseConnection.rollback()
+                    print('Error Logged')
+                    logger.exception(e)
+                    error = 1
+                    messagebox.showwarning('Unknown Error',
+                                           f'An unknown error occurred and has been logged. Report to developer.',
+                                           parent=self)
+
+                if error == 0:
+                    self.databaseConnection.commit()
+                    refund_pdf.save(f'./config/refund_pdfs/')
+                    self.destroy()
+                    self.history_window.destroy()
+                    self.main_menu.update_tables()
+                    messagebox.showinfo('Refund Complete', 'Refund submitted successfully.', parent=self.main_menu)
+
+        else:
+            messagebox.showwarning('Refund Type', 'Please select a refund type.', parent=self)
 
 
 class Receipt_window(tk.Tk):
     def __init__(self, invoice_no, connection, main_menu, email_address, email_password, email_host, email_port, *args, **kwargs):
         tk.Tk.__init__(self, *args, **kwargs)
         self.invoice_no = invoice_no
-        self.report_callback_exception = self.log_unhandled_exception
+        self.report_callback_exception = log_unhandled_exception
         self.main_menu = main_menu
         self.databaseConnection = connection
         self.email_address = email_address
@@ -1782,7 +2117,8 @@ class Receipt_window(tk.Tk):
                     f'To {self.invoice_data[3]},\n\n'
                     f' See attached your Greater Western 4x4 Invoice.\n\n'
                     f'Invoice Due Date: {self.invoice_duedate}\n'
-                    f'Invoice Total: ${self.invoice_data[2]} ', self.email_address, self.email, self.email_password, self.email_host, self.email_port, attachment_path=f'./config/invoice_pdfs/{self.invoice_no}.pdf', filename=self.invoice_no)
+                    f'Invoice Total: ${self.invoice_data[2]} ', self.email_address, self.email, self.email_password, self.email_host, self.email_port,
+                             attachment_path=f'./config/invoice_pdfs/{self.invoice_no}.pdf', filename=f'{self.invoice_no}.pdf')
             status = sender.get_status()
             print(status)
             if status == '1':
@@ -1798,17 +2134,12 @@ class Receipt_window(tk.Tk):
         else:
             print('Cancelled')
 
-    def log_unhandled_exception(self, type, value, traceback):
-        logger.exception('Unhandled Exception', exc_info=(type, value, traceback))
-        messagebox.showerror("Critical Error", 'An unknown error has occurred.\nContact Developer.\n\n'
-                                               f'{type,value}')
-
 
 class ReceiptCashOrTransfer(tk.Tk):
     def __init__(self, invoice_total, invoice_no, connection, receipt_window, main_menu, email, password, *args, **kwargs):
         self.invoice_no = invoice_no
         self.invoice_total = invoice_total
-        self.report_callback_exception = self.log_unhandled_exception
+        self.report_callback_exception = log_unhandled_exception
         self.receipt_window = receipt_window
         self.email_address = email
         self.email_password = password
@@ -1892,7 +2223,7 @@ class ReceiptCashOrTransfer(tk.Tk):
                             self.email_address,  # sender
                             self.member_email,  # receiver
                             self.email_password, self.email_host, self.email_port,  # email password
-                            attachment_path=f'./config/receipt_pdfs/R{self.current_receipt_no}.pdf', filename=self.current_receipt_no)  # receipt attachment
+                            attachment_path=f'./config/receipt_pdfs/R{self.current_receipt_no}.pdf', filename=f'R{self.current_receipt_no}.pdf')  # receipt attachment
                     status = sender.get_status()
                     if status == '1':
                         self.databaseConnection.insert(
@@ -1972,11 +2303,6 @@ class ReceiptCashOrTransfer(tk.Tk):
         receipt_gen.save('.\\config\\receipt_pdfs')
         print('Success')
 
-    def log_unhandled_exception(self, type, value, traceback):
-        logger.exception('Unhandled Exception', exc_info=(type, value, traceback))
-        messagebox.showerror("Critical Error", 'An unknown error has occurred.\nContact Developer.\n\n'
-                                               f'{type,value}')
-
 
 class ExpenseWindow(tk.Tk):
     def __init__(self, connection, main_menu, *args, **kwargs):
@@ -1984,7 +2310,7 @@ class ExpenseWindow(tk.Tk):
         tk.Tk.__init__(self, *args, **kwargs)
         self.title('Add Expense')
         self.databaseConnection = connection
-        self.report_callback_exception = self.log_unhandled_exception
+        self.report_callback_exception = log_unhandled_exception
         self.grid_columnconfigure(0, weight=1)
         self.grid_columnconfigure(1, weight=1)
         self.grid_columnconfigure(2, weight=1)
@@ -2214,16 +2540,11 @@ class ExpenseWindow(tk.Tk):
         text = self.note.get('1.0', 'end')
         return text
 
-    def log_unhandled_exception(self, type, value, traceback):
-        logger.exception('Unhandled Exception', exc_info=(type, value, traceback))
-        messagebox.showerror("Critical Error", 'An unknown error has occurred.\nContact Developer.\n\n'
-                                               f'{type,value}')
-
 
 class IncomeWindow(tk.Tk):
     def __init__(self, connection, main_menu, *args, **kwargs):
         self.main_menu = main_menu
-        self.report_callback_exception = self.log_unhandled_exception
+        self.report_callback_exception = log_unhandled_exception
         tk.Tk.__init__(self, *args, **kwargs)
         self.databaseConnection = connection
         self.grid_columnconfigure(0, weight=1)
@@ -2464,18 +2785,13 @@ class IncomeWindow(tk.Tk):
         text = self.note.get('1.0', 'end')
         return text
 
-    def log_unhandled_exception(self, type, value, traceback):
-        logger.exception('Unhandled Exception', exc_info=(type, value, traceback))
-        messagebox.showerror("Critical Error", 'An unknown error has occurred.\nContact Developer.\n\n'
-                                               f'{type,value}')
-
 
 class AutoInvoicing(tk.Tk):
     def __init__(self, connection, main_menu, email_address, email_password, email_host, email_port, *args, **kwargs):
         tk.Tk.__init__(self, *args, **kwargs)
         self.main_menu = main_menu
         self.databaseConnection = connection
-        self.report_callback_exception = self.log_unhandled_exception
+        self.report_callback_exception = log_unhandled_exception
         self.email_address = email_address
         self.email_password = email_password
         self.email_host = email_host
@@ -2590,17 +2906,12 @@ class AutoInvoicing(tk.Tk):
                     messagebox.showinfo('Email Invoices', 'All invoices sent out', parent=self.main_menu)
             self.destroy()
 
-    def log_unhandled_exception(self, type, value, traceback):
-        logger.exception('Unhandled Exception', exc_info=(type, value, traceback))
-        messagebox.showerror("Critical Error", 'An unknown error has occurred.\nContact Developer.\n\n'
-                                               f'{type,value}')
-
 
 class EmailProgress(tk.Tk):
     def __init__(self, email_list, connection, main_menu, email_address, email_password, email_host, email_port, *args, **kwargs):
         tk.Tk.__init__(self, *args, **kwargs)
         self.databaseConnection = connection
-        self.report_callback_exception = self.log_unhandled_exception
+        self.report_callback_exception = log_unhandled_exception
         self.main_menu = main_menu
         self.email_address = email_address
         self.email_password = email_password
@@ -2663,11 +2974,6 @@ class EmailProgress(tk.Tk):
 
     def get_error_status(self):
         return self.error
-
-    def log_unhandled_exception(self, type, value, traceback):
-        logger.exception('Unhandled Exception', exc_info=(type, value, traceback))
-        messagebox.showerror("Critical Error", 'An unknown error has occurred.\nContact Developer.\n\n'
-                                               f'{type,value}')
 
 
 class CommitteeReport(tk.Frame):
@@ -3049,7 +3355,7 @@ class CashTransfers(tk.Tk):
     def __init__(self, connection, main_menu, *args, **kwargs):
         self.main_menu = main_menu
         self.databaseConnection = connection
-        self.report_callback_exception = self.log_unhandled_exception
+        self.report_callback_exception = log_unhandled_exception
         tk.Tk.__init__(self, *args, **kwargs)
 
         self.grid_columnconfigure(0, weight=1)
@@ -3132,16 +3438,11 @@ class CashTransfers(tk.Tk):
         self.bank_balance_label.configure(text=f'${bank}')
         self.transfer_entry_var.set('')
 
-    def log_unhandled_exception(self, type, value, traceback):
-        logger.exception('Unhandled Exception', exc_info=(type, value, traceback))
-        messagebox.showerror("Critical Error", 'An unknown error has occurred.\nContact Developer.\n\n'
-                                               f'{type,value}')
-
 
 class ReportPeriod(tk.Tk):
     def __init__(self, connection, committee_page, *args, **kwargs):
         self.databaseConnection = connection
-        self.report_callback_exception = self.log_unhandled_exception
+        self.report_callback_exception = log_unhandled_exception
         self.committee_page = committee_page
         tk.Tk.__init__(self, *args, **kwargs)
 
@@ -3320,11 +3621,6 @@ class ReportPeriod(tk.Tk):
         self.destroy()
         messagebox.showinfo('Committee Report', 'Committee report was successfully created', parent=self.committee_page)
 
-    def log_unhandled_exception(self, type, value, traceback):
-        logger.exception('Unhandled Exception', exc_info=(type, value, traceback))
-        messagebox.showerror("Critical Error", 'An unknown error has occurred.\nContact Developer.\n\n'
-                                               f'{type,value}')
-
 
 try:
     setting = open('./config/settings.txt', 'r')
@@ -3347,12 +3643,12 @@ else:
     database_password = settings['db_password']
     host = settings['host']
     database_name = settings['db']
-    print(settings)
+    print('Connecting to database....')
     setting.close()
     # #  backup database on startup
     # args = f'mysqldump -u{database_user} -p{database_password} -h{host} --port=3306 --result-file ./db_backup.sql --databases {database_name}'
     # p = Popen(args, shell=False)  # run back up command in silent command window
     databaseConnection = myDb(database_user, database_password, host, database_name)  # initialise db connection
     app = App(databaseConnection, email_address, email_password, email_host, email_port)  # initialise app
+    print('App loaded')
     app.mainloop()
-

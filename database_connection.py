@@ -10,7 +10,7 @@ class MydatabaseConnection:
             password=password,
             host=host,
             database=database)
-        print('Connected')
+        print(f'Connected to {database}')
         if self.db.is_connected():
             self.db_Info = self.db.get_server_info()
             self.cursor = self.db.cursor()
@@ -33,6 +33,15 @@ class MydatabaseConnection:
 
     def commit(self):
         self.db.commit()
+
+    def start_transaction(self):
+        self.db.start_transaction()
+
+    def rollback(self):
+        self.db.rollback()
+
+    def in_transaction(self):
+        return self.db.in_transaction()
 
 
 
