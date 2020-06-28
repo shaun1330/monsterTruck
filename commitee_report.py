@@ -167,9 +167,9 @@ class CommiteeReportGenerator:
         if self.y - b < 0.05:
             self.c.showPage()
             self.y = 0.9
-            self.c.drawImage('bar_closing.png', 0.05 * w, (self.y * h) - (b * h), 0.75 * w, b * h)
+            self.c.drawImage('./config/bar_closing.png', 0.05 * w, (self.y * h) - (b * h), 0.75 * w, b * h)
         else:
-            self.c.drawImage('bar_closing.png', 0.05 * w, (self.y * h) - (b * h), 0.75 * w, b * h)
+            self.c.drawImage('./config/bar_closing.png', 0.05 * w, (self.y * h) - (b * h), 0.75 * w, b * h)
 
     def save(self, path):
         origPath = os.getcwd()

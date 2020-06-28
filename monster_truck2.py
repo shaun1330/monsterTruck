@@ -66,7 +66,7 @@ class App(tk.Tk):
         self.configure(background='black')
         self.screen_height = self.winfo_screenheight()
         self.screen_width = self.winfo_screenwidth()
-        self.title("Monster Truck v1.0.3")
+        self.title("Monster Truck v2.0.0")
         self.geometry(str(self.winfo_screenwidth())+'x'+str(self.winfo_screenheight()))
         self.state('zoomed')
         container = tk.Frame(self)
@@ -175,7 +175,7 @@ class MainMenu(tk.Frame):
         self.auto_invoicer_button.grid(row=6, column=0)
 
         self.records_button = tk.Button(self, text='Committee\nReport',
-                                        command=controller.show_committee_report)
+                                        command=lambda: ReportPeriod(self.connect, self))
         self.records_button['font'] = button_font
         self.records_button.grid(row=7, column=0)
 
@@ -186,7 +186,7 @@ class MainMenu(tk.Frame):
 
         invoice_table_label = tk.Label(self, text='Unpaid Invoices')
         invoice_table_label.config(font="Courier, 14")
-        invoice_table_label.grid(row=0, column=1, sticky='N')
+        invoice_table_label.grid(row=0, column=1, sticky='N', columnspan=2)
 
         self.invoices_table = Treeview(self, height=20)
         self.invoices_table["columns"] = ('member_name', 'issue_date', 'due_date', 'total', 'invoice_sent')
@@ -206,7 +206,6 @@ class MainMenu(tk.Frame):
         self.invoices_table.heading('invoice_sent', text="Sent")
         self.invoices_table.bind("<Double-1>", self.on_double_click_invoice)
 
-
         history_table_label = tk.Label(self, text='Transactions History')
         history_table_label.config(font="Courier, 14")
         history_table_label.grid(row=0, column=3, sticky='N')
@@ -222,8 +221,7 @@ class MainMenu(tk.Frame):
                                          'bank_balance')
         self.history_table.grid(row=1, column=3, rowspan=8, sticky='w')
 
-
-        self.history_table.column('#0', width=self.history_column_font.measure('Expense '),
+        self.history_table.column('#0', width=self.history_column_font.measure('EXPENSE  '),
                                   stretch=False)
         self.history_table.heading('#0', text="Type")
         self.history_table.column('code', width=self.history_column_font.measure('99999'),
@@ -232,16 +230,16 @@ class MainMenu(tk.Frame):
         self.history_table.column('date', width=self.history_column_font.measure('30-22-9999'),
                                   stretch=False, anchor='e')
         self.history_table.heading('date', text='Date')
-        self.history_table.column('cash_amount', width=self.history_column_font.measure(' Cash Amount '),
+        self.history_table.column('cash_amount', width=self.history_column_font.measure('Cash Amount'),
                                   stretch=False, anchor='e')
         self.history_table.heading('cash_amount', text="Cash Amount")
-        self.history_table.column('transfer_amount', width=self.history_column_font.measure(' Transfer Amount '),
+        self.history_table.column('transfer_amount', width=self.history_column_font.measure('Transfer Amount'),
                                   stretch=False, anchor='e')
         self.history_table.heading('transfer_amount', text="Transfer Amount")
-        self.history_table.column('cash_balance', width=self.history_column_font.measure(' Cash Balance '),
+        self.history_table.column('cash_balance', width=self.history_column_font.measure('Cash Balance'),
                                   stretch=False, anchor='e')
         self.history_table.heading('cash_balance', text="Cash Balance")
-        self.history_table.column('bank_balance', width=self.history_column_font.measure(' Bank Balance '),
+        self.history_table.column('bank_balance', width=self.history_column_font.measure('Bank Balance'),
                                   stretch=False, anchor='e')
         self.history_table.heading('bank_balance', text="Bank Balance")
         self.history_table.bind("<Double-1>", self.on_double_click_history)
@@ -331,7 +329,6 @@ class MainMenu(tk.Frame):
         else:
             send_yesno = messagebox.askyesno('Send Invoices', 'Are you sure you want to send out unsent invoices?')
             if send_yesno:
-                print(self.unsent_invoices)
                 status = EmailProgress(self.unsent_invoices, self.connect, self, self.email_address,
                                        self.email_password,
                                        self.email_host,
@@ -446,7 +443,6 @@ class MainMenu(tk.Frame):
 
     def update_balance(self):
         self.balances = self.transaction_history[0][-2:]
-        print(self.balances)
         self.month_in = self.connect.query('select '
                                                        'sum(cash_amount)+sum(transfer_amount) '
                                                        'from '
@@ -517,7 +513,7 @@ class MainMenu(tk.Frame):
         self.cash_balance_label = tk.Label(self,
                                            text=f'Cash Balance: ${self.balances[0]}\n'
                                                 f'Bank Balance: ${self.balances[1]}',
-                                           font='courier 13 bold')
+                                           font='courier 15 bold')
         self.cash_balance_label.grid(row=6, column=1)
 
         current_month = datetime.today().month
@@ -547,7 +543,7 @@ class MainMenu(tk.Frame):
             self.current_month = 'December'
 
         self.money_in_out_label = tk.Label(self, text=f'{self.current_month} Money In: ${self.month_in}\n{self.current_month} Money Out: ${self.month_out}',
-                                               font='courier 13 bold')
+                                               font='courier 15 bold')
         self.money_in_out_label.grid(row=6, column=2)
 
 
@@ -556,7 +552,7 @@ class MainMenu(tk.Frame):
         if self.month_out is None:
             self.month_out = 0
         self.money_in_out_label.configure(text=f'{self.current_month} Money In: ${self.month_in}\n{self.current_month} Money Out: ${self.month_out}',
-                                                  font='courier 13 bold')
+                                                  font='courier 15 bold')
 
         self.connect.insert('set @cashSum := 0;')
         self.connect.insert('set @bankSum := 0;')
@@ -593,7 +589,6 @@ class MainMenu(tk.Frame):
             'and '
             'payment_datetime between now() - INTERVAL 6 MONTH and NOW() '
             'order by payment_datetime desc;')
-        print(self.end_of_month_balance)
         months = [c[0] for c in self.end_of_month_balance]
         if len(months) < 6:
             last_month = datetime.strptime(months[-1], '%Y-%m')
@@ -626,6 +621,7 @@ class MainMenu(tk.Frame):
         plt.xticks(rotation=30)
         plt.savefig('./config/bar_closing')
 
+
 class Members(tk.Frame):
     def __init__(self, parent, controller, connection):
         tk.Frame.__init__(self, parent)
@@ -636,11 +632,13 @@ class Members(tk.Frame):
         self.grid_columnconfigure(0, weight=1)
         self.grid_columnconfigure(1, weight=1)
         self.grid_columnconfigure(2, weight=1)
+        self.grid_columnconfigure(3, weight=1)
         self.grid_rowconfigure(0, weight=1)
         self.grid_rowconfigure(1, weight=1)
         self.grid_rowconfigure(2, weight=1)
 
-        members_table = self.databaseConnection.query('select '
+
+        self.active_members_table = self.databaseConnection.query('select '
                                                       'member_no, '
                                                       'member_fname, '
                                                       'member_lname, '
@@ -651,10 +649,13 @@ class Members(tk.Frame):
                                                       'mobile_phone, '
                                                       'email, '
                                                       'member_status '
-                                                      'from members where member_no != 1')
+                                                      'from members where member_no != 1 and '
+                                                      'member_status = "ACTIVE";')
+
+
 
         self.member_label = tk.Label(self, text='Members Menu', font='courier 40 bold')
-        self.member_label.grid(row=0, columnspan=3)
+        self.member_label.grid(row=0, columnspan=4)
 
         self.table = Treeview(self, height=20)
         self.table.bind("<Double-1>", self.on_double_click)
@@ -695,9 +696,9 @@ class Members(tk.Frame):
         self.table.heading('mobile', text='Mobile Number')
         self.table.heading('email', text='Email')
         self.table.heading('status', text='Member Status')
-        self.table.grid(row=1, columnspan=3, padx=round(self.screen_width*0.02))
+        self.table.grid(row=1, columnspan=4, padx=round(self.screen_width*0.02))
 
-        for row in members_table:
+        for row in self.active_members_table:
             self.table.insert('', 'end', text=row[0], values=row[1:])
 
         button_font = font.Font(family='Courier', size=20, weight='bold')
@@ -713,6 +714,55 @@ class Members(tk.Frame):
         self.export_button = tk.Button(self, text='Export Members Info', command=self.exporter)
         self.export_button['font'] = button_font
         self.export_button.grid(row=2, column=2, sticky='N', pady=5)
+
+        self.toggle_active_button = tk.Button(self, text='Show Inactive Members', command=self.toggle_active)
+        self.toggle_active_button['font'] = button_font
+        self.toggle_active_button.grid(row=2, column=3, sticky='N', pady=5)
+
+        self.showing_active = True
+
+    def toggle_active(self):
+        if self.showing_active:
+            self.full_members_table = self.databaseConnection.query('select '
+                                                                    'member_no, '
+                                                                    'member_fname, '
+                                                                    'member_lname, '
+                                                                    'partner_name, '
+                                                                    'street_address, '
+                                                                    'suburb, postcode, '
+                                                                    'home_phone, '
+                                                                    'mobile_phone, '
+                                                                    'email, '
+                                                                    'member_status '
+                                                                    'from members where member_no != 1 ;')
+            self.table.delete(*self.table.get_children())
+            for row in self.full_members_table:
+                self.table.insert('', 'end', text=row[0], values=row[1:])
+            self.showing_active = False
+            self.toggle_active_button['text'] = "Hide Inactive Members"
+        else:
+            self.table.delete(*self.table.get_children())
+            self.active_members_table = self.databaseConnection.query('select '
+                                                                      'member_no, '
+                                                                      'member_fname, '
+                                                                      'member_lname, '
+                                                                      'partner_name, '
+                                                                      'street_address, '
+                                                                      'suburb, postcode, '
+                                                                      'home_phone, '
+                                                                      'mobile_phone, '
+                                                                      'email, '
+                                                                      'member_status '
+                                                                      'from members where member_no != 1 and '
+                                                                      'member_status = "ACTIVE";')
+            for row in self.active_members_table:
+                self.table.insert('', 'end', text=row[0], values=row[1:])
+            self.showing_active = True
+            self.toggle_active_button['text'] = "Show Inactive Members"
+
+
+
+
 
     def exporter(self):
         members_info = self.databaseConnection.query('select '
@@ -1085,7 +1135,6 @@ class InvoiceWindow(tk.Tk):
 
     def select_item(self, a):
         self.row_values = self.invoice_table.item(self.invoice_table.selection())
-        print(self.row_values)
 
     def add_item_command(self):
         if self.member_var.get() != 'Select Member':
@@ -1096,7 +1145,6 @@ class InvoiceWindow(tk.Tk):
             item_qty = int(self.item_qty_var.get())
             sub_total = item_price*item_qty
             row = (item_code, item_selection, item_price, item_qty, sub_total)
-            print(row)
             self.item_prices.append(row)
 
             self.invoice_table.insert('', 'end', text=item_code, values=[item_selection, item_price, item_qty, sub_total])
@@ -1108,7 +1156,6 @@ class InvoiceWindow(tk.Tk):
             price_string = '$' + str(self.total)
             self.invoice_total_var.set(price_string)
             self.attributes("-topmost", True)
-            print(self.member_var.get())
 
     def remove_item_command(self):
         item_code = self.row_values['text']
@@ -1117,7 +1164,6 @@ class InvoiceWindow(tk.Tk):
         item_qty = self.row_values['values'][2]
         sub_total = self.row_values['values'][3]
         row = (item_code, item_desc, float(item_price), item_qty, float(sub_total))
-        print(row)
         self.item_prices.remove(row)
         self.invoice_table.delete(self.invoice_table.selection())
 
@@ -1219,7 +1265,6 @@ class InvoiceWindow(tk.Tk):
                                                f'An unknown error occurred and has been logged. Report to developer.')
                 self.databaseConnection.commit()
                 invoice_copy.save('.\\config\\invoice_pdfs')
-                print('Invoice created')
                 self.main_menu.update_tables()
                 self.destroy()
                 messagebox.showinfo('Invoice Created', 'Invoice successfully created', parent=self.main_menu)
@@ -1429,7 +1474,6 @@ class HistoryWindow(tk.Tk):
         state = 'on'
         self.report_callback_exception = log_unhandled_exception
         self.receipt_no = int(receipt_no)
-        print(self.receipt_no)
         self.main_menu = main_menu
         self.databaseConnection = connection
         self.receipt_type = type
@@ -1931,9 +1975,7 @@ class HistoryWindow(tk.Tk):
             messagebox.showinfo('Delete Transfer', 'Transfer record deleted successfully', parent=self.main_menu)
 
     def refund_invoice(self):
-        print(self.receipt_no)
         refunded = self.databaseConnection.query(f'select invoice_receipt_no from refunds where invoice_receipt_no = {self.receipt_no}')
-        print(len(refunded))
         if len(refunded) != 0:
             refund_data = self.databaseConnection.query(f'select '
                                                         f'refund_no, '
@@ -2400,7 +2442,8 @@ class ReceiptCashOrTransfer(tk.Tk):
             self.transfer = float(self.transfer)
 
         if error != 1:
-            self.total = self.cash + self.transfer
+            self.total = round(self.cash + self.transfer,2)
+            print(self.cash, self.transfer, self.total)
             if self.total != float(self.invoice_total):
                 messagebox.showerror('Value Error', 'Cash and transfer values do not equal invoice total', parent=self)
             else:
@@ -2480,7 +2523,7 @@ class ReceiptCashOrTransfer(tk.Tk):
         receipt_gen.receiptDate(receipt_date)
         receipt_gen.streetAdress(street_address)
         receipt_gen.cityStatePostCode(suburb, state, postcode)
-        print('canvas created')
+
 
         if date == datetime.today().strftime("%d/%m/%Y"):
             self.databaseConnection.insert(f'insert into invoice_receipt '
@@ -2960,7 +3003,6 @@ class IncomeWindow(tk.Tk):
                                                        f'{self.transfer}, '
                                                        f'str_to_date("{date}","%d/%m/%Y"), '
                                                        f'"{notes}");')
-                        print(string)
                         logger.exception(f"Error with Edit Member\nInsert String: {string}")
                         messagebox.showwarning('Unknown Error',
                                                f'An unknown error occurred and has been logged. Report to developer.')
@@ -3032,14 +3074,10 @@ class AutoInvoicing(tk.Tk):
         if datetime.today() < datetime(current_year, 7, 1):
             current_year = str(datetime.today().year)
             self.calendar.set_date('01/07/'+current_year[-2:])
-            print(current_year)
-            print(1)
         else:
             current_year = datetime(current_year + 1, 7, 1).year
             current_year = str(current_year)
             self.calendar.set_date('01/07/' + current_year[-2:])
-            print(current_year)
-            print(2)
         # self.due_date_var.set('01-07-'+current_year[-2:])
         # self.due_date_entry = tk.Entry(self, textvariable=self.due_date_var, width=10)
         # self.due_date_entry.grid(row=1, column=1, sticky='N')
@@ -3065,7 +3103,6 @@ class AutoInvoicing(tk.Tk):
         invoice_email_list = []
         if yesno:
             for member in self.active_members:
-                print(member[0])
                 invoice_filename = f'{self.current_invoice_no}.pdf'
                 self.databaseConnection.insert(f'insert into invoice '
                                                f'(invoice_no, invoice_date, invoice_duedate,invoice_total, member_no, invoice_sent) values '
@@ -3508,7 +3545,6 @@ class CommitteeReport(tk.Frame):
             'and '
             'payment_datetime between now() - INTERVAL 6 MONTH and NOW() '
             'order by payment_datetime desc;')
-        print(self.end_of_month_balance)
         months = [c[0] for c in self.end_of_month_balance]
         if len(months) < 6:
             last_month = datetime.strptime(months[-1], '%Y-%m')
@@ -3630,10 +3666,10 @@ class CashTransfers(tk.Tk):
 
 
 class ReportPeriod(tk.Tk):
-    def __init__(self, connection, committee_page, *args, **kwargs):
+    def __init__(self, connection, main_menu, *args, **kwargs):
         self.databaseConnection = connection
+        self.main_menu = main_menu
         self.report_callback_exception = log_unhandled_exception
-        self.committee_page = committee_page
         tk.Tk.__init__(self, *args, **kwargs)
 
         self.grid_columnconfigure(0, weight=1)
@@ -3683,8 +3719,6 @@ class ReportPeriod(tk.Tk):
 
         report_start_flip = report_start[6:]+report_start[2:6]+report_start[:2]
         report_end_flip = report_end[6:] + report_end[2:6] + report_end[:2]
-        print(report_start)
-        print(report_end)
 
         self.balances = self.databaseConnection.query('select @cashSum, @bankSum')
         report_invoice_incomes = self.databaseConnection.query('select\n'
@@ -3809,7 +3843,7 @@ class ReportPeriod(tk.Tk):
         report.draw_image()
         report.save('./config/committee_reports')
         self.destroy()
-        messagebox.showinfo('Committee Report', 'Committee report was successfully created', parent=self.committee_page)
+        messagebox.showinfo('Committee Report', 'Committee report was successfully created', parent=self.main_menu)
 
 
 try:
