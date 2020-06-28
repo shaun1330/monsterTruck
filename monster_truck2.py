@@ -2479,11 +2479,6 @@ class ExpenseWindow(tk.Tk):
                                                                f'{self.transfer}, '
                                                                f'str_to_date("{date}","%d/%m/%Y"), '
                                                                f'"{notes}");')
-                            # self.databaseConnection.commit()
-                            # self.main_menu.update_tables()
-                            # self.destroy()
-                            # messagebox.showinfo('Expense Recorded', 'New expense recorded successfully',
-                            #                     parent=self.main_menu)
                             new_cat = 1
 
 
@@ -2886,7 +2881,7 @@ class AutoInvoicing(tk.Tk):
                                                f'(invoice_no, item_code, item_qty, invoice_item_value) values '
                                                f'({self.current_invoice_no}, 1, 1,{price})')
                 self.databaseConnection.commit()
-                self.main_menu.update_tables()
+                # self.main_menu.update_tables()
                 invoice_email_list.append((invoice_filename, member[-1], member[1]))
                 self.current_invoice_no += 1
                 invoice = InvoiceGenerator(invoice_filename, price, due_date)
@@ -2898,6 +2893,7 @@ class AutoInvoicing(tk.Tk):
                 invoice.invoiceDate(datetime.today().date().strftime('%d/%m/%y'))
                 invoice.invoice_line([1], ['Annual Membership Renewal Fee'], [price], [1], [price])
                 invoice.save('.\\config\\invoice_pdfs')
+            self.main_menu.update_tables()
             email_yesno = messagebox.askyesno('Email Invoices', 'Would you like to send out these invoices via email?',
                                               parent=self)
             if email_yesno:
@@ -2952,7 +2948,7 @@ class EmailProgress(tk.Tk):
                 invoice_no = email[0][:-4]
                 self.databaseConnection.insert(f'update invoice set invoice_sent = "Yes" where invoice_no = {invoice_no}')
                 self.databaseConnection.commit()
-                self.main_menu.update_tables()
+
                 current_value = (100/number_of_members)*i
                 self.progresser(current_value)
                 self.progress.update()
@@ -2967,6 +2963,7 @@ class EmailProgress(tk.Tk):
                                      parent=self.main_menu)
                 self.error = '0'
                 break
+        self.main_menu.update_tables()
         self.destroy()
 
     def progresser(self, current_value):
