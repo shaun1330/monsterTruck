@@ -55,6 +55,7 @@ def log_unhandled_exception(type, value, traceback):
     button = tk.Button(top, text="Dismiss", command=top.destroy)
     button.pack()
 
+
 class App(tk.Tk):
     def __init__(self, connection, email_address, email_password, email_host, email_port, *args, **kwargs):
         tk.Tk.__init__(self, *args, **kwargs)
@@ -108,8 +109,15 @@ class MainMenu(tk.Frame):
         self.email_password = email_password
         self.email_host = email_host
         self.email_port = email_port
+        self.grid_columnconfigure(0, weight=1)
         self.grid_columnconfigure(1, weight=1)
         self.grid_columnconfigure(2, weight=1)
+        self.grid_columnconfigure(3, weight=1)
+        self.grid_columnconfigure(4, weight=1)
+        self.grid_columnconfigure(5, weight=1)
+        self.grid_columnconfigure(6, weight=1)
+        self.grid_columnconfigure(7, weight=1)
+        self.grid_columnconfigure(8, weight=1)
         self.grid_rowconfigure(0, weight=1)
         self.grid_rowconfigure(1, weight=1)
         self.grid_rowconfigure(2, weight=1)
@@ -135,27 +143,27 @@ class MainMenu(tk.Frame):
         self.new_member_button = tk.Button(self, text='Members',
                                            command=lambda: controller.show_frame(Members))
         self.new_member_button['font'] = button_font
-        self.new_member_button.grid(row=1, column=0, padx=10)
+        self.new_member_button.grid(row=1, column=0)
 
         self.new_invoice_button = tk.Button(self, text='New Invoice',
                                             command=lambda: InvoiceWindow(connection, self))
         self.new_invoice_button['font'] = button_font
-        self.new_invoice_button.grid(row=2, column=0, padx=10)
+        self.new_invoice_button.grid(row=2, column=0)
 
         self.new_expense_button = tk.Button(self, text='Add\nExpense',
                                             command=lambda: ExpenseWindow(connection, self))
         self.new_expense_button['font'] = button_font
-        self.new_expense_button.grid(row=3, column=0, padx=10)
+        self.new_expense_button.grid(row=3, column=0)
 
         self.new_expense_button = tk.Button(self, text='Add\nIncome',
                                             command=lambda: IncomeWindow(connection, self))
         self.new_expense_button['font'] = button_font
-        self.new_expense_button.grid(row=4, column=0, padx=10)
+        self.new_expense_button.grid(row=4, column=0)
 
         self.cash_deposit_button = tk.Button(self, text='Cash Out/\nBank Deposit',
                                               command=lambda: CashTransfers(connection, self))
         self.cash_deposit_button['font'] = button_font
-        self.cash_deposit_button.grid(row=5, column=0, padx=10)
+        self.cash_deposit_button.grid(row=5, column=0)
 
         self.auto_invoicer_button = tk.Button(self, text='Auto\nInvoicer',
                                               command=lambda: AutoInvoicing(connection,
@@ -164,25 +172,25 @@ class MainMenu(tk.Frame):
                                                                             self.email_host,
                                                                             self.email_port))
         self.auto_invoicer_button['font'] = button_font
-        self.auto_invoicer_button.grid(row=6, column=0, padx=10)
+        self.auto_invoicer_button.grid(row=6, column=0)
 
         self.records_button = tk.Button(self, text='Committee\nReport',
                                         command=controller.show_committee_report)
         self.records_button['font'] = button_font
-        self.records_button.grid(row=7, column=0, padx=10)
+        self.records_button.grid(row=7, column=0)
 
         self.records_button = tk.Button(self, text='Send Unsent\nInvoices',
                                         command=self.send_unsent_invoices)
         self.records_button['font'] = button_font
-        self.records_button.grid(row=8, column=0, padx=10)
+        self.records_button.grid(row=8, column=0)
 
         invoice_table_label = tk.Label(self, text='Unpaid Invoices')
         invoice_table_label.config(font="Courier, 14")
         invoice_table_label.grid(row=0, column=1, sticky='N')
 
-        self.invoices_table = Treeview(self, height=35)
+        self.invoices_table = Treeview(self, height=20)
         self.invoices_table["columns"] = ('member_name', 'issue_date', 'due_date', 'total', 'invoice_sent')
-        self.invoices_table.grid(row=1, column=1, rowspan=8, padx=2)
+        self.invoices_table.grid(row=1, column=1, rowspan=5, columnspan=2)
 
         self.invoices_table.column('#0', width=round(self.winfo_screenwidth() * 0.06), stretch=False)
         self.invoices_table.heading('#0', text="Invoice No")
@@ -198,17 +206,18 @@ class MainMenu(tk.Frame):
         self.invoices_table.heading('invoice_sent', text="Sent")
         self.invoices_table.bind("<Double-1>", self.on_double_click_invoice)
 
+
         history_table_label = tk.Label(self, text='Transactions History')
         history_table_label.config(font="Courier, 14")
-        history_table_label.grid(row=0, column=2, sticky='N')
-        self.history_table = Treeview(self, height=35)
+        history_table_label.grid(row=0, column=3, sticky='N')
+        self.history_table = Treeview(self, height=36)
         self.history_table["columns"] = ('code',
                                          'date',
                                          'cash_amount',
                                          'transfer_amount',
                                          'cash_balance',
                                          'bank_balance')
-        self.history_table.grid(row=1, column=2, rowspan=8, padx=2)
+        self.history_table.grid(row=1, column=3, rowspan=8, sticky='w')
 
         self.history_table.column('#0', width=round(self.winfo_screenwidth() * 0.06),
                                   stretch=False)
@@ -237,6 +246,8 @@ class MainMenu(tk.Frame):
 
         self.populate_invoice_table()
         self.populate_history_table()
+
+        self.update_balance()
 
         try:
             self.exporter()
@@ -348,7 +359,7 @@ class MainMenu(tk.Frame):
 
     def populate_history_table(self):
         self.create_temp_table()
-        transaction_history = self.connect.query('select '
+        self.transaction_history = self.connect.query('select '
                                                  'n, date_format(payment_datetime,"%d-%m-%Y"), '
                                                  'cash_amount, '
                                                  'transfer_amount, '
@@ -357,7 +368,7 @@ class MainMenu(tk.Frame):
                                                  'from payment_history '
                                                  'where n != 30000 '
                                                  'order by payment_datetime desc, n desc;')
-        for row in transaction_history:
+        for row in self.transaction_history:
             if row[0] > 30000 and row[0] < 40000:
                 self.history_table.insert('', 'end', text='Income', values=row)
             elif 40000 < row[0] < 50000:
@@ -371,6 +382,7 @@ class MainMenu(tk.Frame):
                 self.history_table.insert('', 'end', text='Expense', values=row)
             elif row[0] > 90000:
                 self.history_table.insert('', 'end', text='Refund', value=row)
+        self.update_balance()
 
     def create_temp_table(self):
         self.connect.insert('set @cashSum := 0;')
@@ -430,6 +442,187 @@ class MainMenu(tk.Frame):
         receipt_type = self.history_table.item(item, 'text')
         HistoryWindow(receipt_no[0], self.connect, self, receipt_type, self.email_address, self.email_password, self.email_host, self.email_port)
 
+    def update_balance(self):
+        self.balances = self.transaction_history[0][-2:]
+        print(self.balances)
+        self.month_in = self.connect.query('select '
+                                                       'sum(cash_amount)+sum(transfer_amount) '
+                                                       'from '
+                                                       '(\n'
+                                                       '(select invoice_no as n, '
+                                                       'payment_datetime, '
+                                                       'cash_amount, '
+                                                       'transfer_amount '
+                                                       'from invoice_receipt)'
+                                                       '\n'
+                                                       'union all'
+                                                       '\n'
+                                                       '(select expense_receipt_no as n, '
+                                                       'payment_datetime, '
+                                                       'cash_amount, '
+                                                       'transfer_amount '
+                                                       'from expense_receipt)'
+                                                       '\n'
+                                                       'union all'
+                                                       '\n'
+                                                       '(select income_receipt_no as n, '
+                                                       'payment_datetime, '
+                                                       'cash_amount, '
+                                                       'transfer_amount '
+                                                       'from income_receipt)) '
+                                                       'as hist\n'
+                                                       'where '
+                                                       '(payment_datetime '
+                                                       'between date_format(now() , "%Y-%m-01") and NOW())'
+                                                       ' and '
+                                                       '(cash_amount > 0 or transfer_amount > 0)\n'
+                                                       'order by payment_datetime desc;')
+        self.month_out = self.connect.query('select '
+                                                       'sum(cash_amount)+sum(transfer_amount) '
+                                                       'from '
+                                                       '(\n'
+                                                       '(select invoice_no as n, '
+                                                       'payment_datetime, '
+                                                       'cash_amount, '
+                                                       'transfer_amount '
+                                                       'from invoice_receipt)'
+                                                       '\n'
+                                                       'union all'
+                                                       '\n'
+                                                       '(select expense_receipt_no as n, '
+                                                       'payment_datetime, '
+                                                       'cash_amount, '
+                                                       'transfer_amount '
+                                                       'from expense_receipt)'
+                                                       '\n'
+                                                       'union all'
+                                                       '\n'
+                                                       '(select income_receipt_no as n, '
+                                                       'payment_datetime, '
+                                                       'cash_amount, '
+                                                       'transfer_amount '
+                                                       'from income_receipt)) '
+                                                       'as hist\n'
+                                                       'where '
+                                                       '(payment_datetime '
+                                                       'between date_format(now() , "%Y-%m-01") and NOW())'
+                                                       ' and '
+                                                       '(cash_amount < 0 or transfer_amount < 0)\n'
+                                                       'order by payment_datetime desc;')
+        self.month_in = self.month_in[0][0]
+        self.month_out = self.month_out[0][0]
+
+        self.cash_balance_label = tk.Label(self,
+                                           text=f'Cash Balance: ${self.balances[0]}\n'
+                                                f'Bank Balance: ${self.balances[1]}',
+                                           font='courier 13 bold')
+        self.cash_balance_label.grid(row=6, column=1)
+
+        current_month = datetime.today().month
+        if current_month == 1:
+            self.current_month = 'January'
+        elif current_month == 2:
+            self.current_month = 'February'
+        elif current_month == 3:
+            self.current_month = 'March'
+        elif current_month == 4:
+            self.current_month = 'April'
+        elif current_month == 5:
+            self.current_month = 'May'
+        elif current_month == 6:
+            self.current_month = 'June'
+        elif current_month == 7:
+            self.current_month = 'July'
+        elif current_month == 8:
+            self.current_month = 'August'
+        elif current_month == 9:
+            self.current_month = 'September'
+        elif current_month == 10:
+            self.current_month = 'October'
+        elif current_month == 11:
+            self.current_month = 'November'
+        elif current_month == 12:
+            self.current_month = 'December'
+
+        self.money_in_out_label = tk.Label(self, text=f'{self.current_month} Money In: ${self.month_in}\n{self.current_month} Money Out: ${self.month_out}',
+                                               font='courier 13 bold')
+        self.money_in_out_label.grid(row=6, column=2)
+
+
+        if self.month_in is None:
+            self.month_in = 0
+        if self.month_out is None:
+            self.month_out = 0
+        self.money_in_out_label.configure(text=f'{self.current_month} Money In: ${self.month_in}\n{self.current_month} Money Out: ${self.month_out}',
+                                                  font='courier 13 bold')
+
+        self.connect.insert('set @cashSum := 0;')
+        self.connect.insert('set @bankSum := 0;')
+        self.connect.insert('drop temporary table if exists last_payment_of_month;')
+        self.connect.insert(
+            'create temporary table last_payment_of_month '
+            'select distinct(max(payment_datetime)) '
+            'as '
+            'payment_datetime '
+            'from '
+            '((select payment_datetime from invoice_receipt) '
+            'union all '
+            '(select payment_datetime from expense_receipt))'
+            ' as hista '
+            'group by DATE_FORMAT(payment_datetime, "%Y-%m");')
+
+        self.end_of_month_balance = self.connect.query(
+            'select distinct(DATE_FORMAT(payment_datetime, "%Y-%m")), '
+            'cash_balance + bank_balance '
+            'from '
+            '(select payment_datetime, cash_amount, transfer_amount, (@cashSum := @cashSum + cash_amount)'
+            ' as cash_balance, '
+            '(@bankSum := @bankSum + transfer_amount) as bank_balance '
+            'from '
+            '((select invoice_no as n, payment_datetime, cash_amount, transfer_amount from invoice_receipt) '
+            'union all	'
+            '(select expense_receipt_no as n, payment_datetime, cash_amount, transfer_amount from expense_receipt) '
+            'union all '
+            '(select income_receipt_no as n, payment_datetime, cash_amount, transfer_amount from income_receipt) ) '
+            'as hist '
+            'order by payment_datetime ) '
+            'as i  '
+            'where payment_datetime in (select distinct(payment_datetime) from last_payment_of_month) '
+            'and '
+            'payment_datetime between now() - INTERVAL 6 MONTH and NOW() '
+            'order by payment_datetime desc;')
+        print(self.end_of_month_balance)
+        months = [c[0] for c in self.end_of_month_balance]
+        if len(months) < 6:
+            last_month = datetime.strptime(months[-1], '%Y-%m')
+            zero_months = 6 - len(months)
+            for i in range(1, zero_months+1):
+                new_last = last_month - relativedelta(months=i)
+                new_last = new_last.strftime("%Y-%m")
+                months.append(new_last)
+        months.reverse()
+        balances = [c[1] for c in self.end_of_month_balance]
+        if len(balances) < 6:
+            zero_months = 6 - len(balances)
+            for i in range(zero_months):
+                balances.append(0)
+        balances.reverse()
+        f = Figure(figsize=(6, 2))
+        f.set_facecolor((0.94, 0.94, 0.93))
+        a = f.add_subplot(111, ylim=(0, max(balances)+100))
+        a.bar(months, balances)
+
+        a.set_ylabel('Dollars ($)')
+        a.tick_params(axis='x',labelsize=7)
+        a.tick_params(axis='y', labelsize=7)
+        a.set_facecolor((0.94, 0.94, 0.93))
+        canvas = FigureCanvasTkAgg(f, self)
+        canvas.get_tk_widget().grid(row=7, column=1, rowspan=2, columnspan=2, sticky='n')
+
+        plt.figure(dpi=200)
+        plt.bar(months, balances, color='grey')
+        plt.xticks(rotation=30)
+        plt.savefig('./config/bar_closing')
 
 class Members(tk.Frame):
     def __init__(self, parent, controller, connection):
@@ -3202,7 +3395,6 @@ class CommitteeReport(tk.Frame):
         main_menu_button.grid(row=11, column=3)
 
     def update_balance(self):
-
         self.balances = self.databaseConnection.query('select @cashSum, @bankSum')
         self.month_in = self.databaseConnection.query('select '
                                                        'sum(cash_amount)+sum(transfer_amount) '
