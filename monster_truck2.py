@@ -210,6 +210,9 @@ class MainMenu(tk.Frame):
         history_table_label = tk.Label(self, text='Transactions History')
         history_table_label.config(font="Courier, 14")
         history_table_label.grid(row=0, column=3, sticky='N')
+        # button_font = font.Font(family='Courier', size=15, weight='bold')
+        self.history_column_font = font.Font(family='Courier', size=10)
+
         self.history_table = Treeview(self, height=36)
         self.history_table["columns"] = ('code',
                                          'date',
@@ -219,27 +222,26 @@ class MainMenu(tk.Frame):
                                          'bank_balance')
         self.history_table.grid(row=1, column=3, rowspan=8, sticky='w')
 
-        self.history_table.column('#0', width=round(self.winfo_screenwidth() * 0.06),
+
+        self.history_table.column('#0', width=self.history_column_font.measure('Expense '),
                                   stretch=False)
         self.history_table.heading('#0', text="Type")
-        self.history_table.column('date', width=round(self.winfo_screenwidth() * 0.06),
-                                  stretch=False, anchor='e')
-        self.history_table.column('code', width=round(self.winfo_screenwidth() * 0.03),
+        self.history_table.column('code', width=self.history_column_font.measure('99999'),
                                   stretch=False)
         self.history_table.heading('code', text="Code")
-        self.history_table.column('date', width=round(self.winfo_screenwidth() * 0.06),
+        self.history_table.column('date', width=self.history_column_font.measure('30-22-9999'),
                                   stretch=False, anchor='e')
         self.history_table.heading('date', text='Date')
-        self.history_table.column('cash_amount', width=round(self.winfo_screenwidth() * 0.08),
+        self.history_table.column('cash_amount', width=self.history_column_font.measure(' Cash Amount '),
                                   stretch=False, anchor='e')
         self.history_table.heading('cash_amount', text="Cash Amount")
-        self.history_table.column('transfer_amount', width=round(self.winfo_screenwidth() * 0.08),
+        self.history_table.column('transfer_amount', width=self.history_column_font.measure(' Transfer Amount '),
                                   stretch=False, anchor='e')
         self.history_table.heading('transfer_amount', text="Transfer Amount")
-        self.history_table.column('cash_balance', width=round(self.winfo_screenwidth() * 0.08),
+        self.history_table.column('cash_balance', width=self.history_column_font.measure(' Cash Balance '),
                                   stretch=False, anchor='e')
         self.history_table.heading('cash_balance', text="Cash Balance")
-        self.history_table.column('bank_balance', width=round(self.winfo_screenwidth() * 0.08),
+        self.history_table.column('bank_balance', width=self.history_column_font.measure(' Bank Balance '),
                                   stretch=False, anchor='e')
         self.history_table.heading('bank_balance', text="Bank Balance")
         self.history_table.bind("<Double-1>", self.on_double_click_history)
@@ -2132,8 +2134,7 @@ class RefundCashOrTransfer(tk.Tk):
                 refund_pdf.cityStatePostCode(self.receipt_data['suburb'],
                                              self.receipt_data['state'],
                                              self.receipt_data['postcode'])
-                if not self.databaseConnection.in_transaction:
-                    self.databaseConnection.start_transaction()
+
                 error = 0
                 try:
                     self.databaseConnection.insert(f'insert into refunds ('
