@@ -19,6 +19,7 @@ from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
 from matplotlib.figure import Figure
 from openpyxl import Workbook
 
+
 def log_unhandled_exception(type, value, traceback):
     logger.exception('Unhandled Exception', exc_info=(type, value, traceback))
     # messagebox.showerror("Critical Error", 'An unknown error has occurred.\nContact Developer.\n\n'
@@ -66,7 +67,7 @@ class App(tk.Tk):
         self.configure(background='black')
         self.screen_height = self.winfo_screenheight()
         self.screen_width = self.winfo_screenwidth()
-        self.title("Monster Truck v2.0.0")
+        self.title("Monster Truck v2.0.1")
         self.geometry(str(self.winfo_screenwidth())+'x'+str(self.winfo_screenheight()))
         self.state('zoomed')
         container = tk.Frame(self)
@@ -2873,11 +2874,11 @@ class IncomeWindow(tk.Tk):
         if (self.cash == '' or self.cash == 0) and (self.transfer == '' or self.transfer == 0):
             messagebox.showerror('Missing Values', 'Cash and transfer values cannot be both zero', parent=self)
         else:
-            if match(r'^-?\d+.?(\d+)?$', self.cash) is None:
+            if len(self.cash) == 0:
+                self.cash = 0
+            elif match(r'^-?\d+.?(\d+)?$', self.cash) is None:
                 messagebox.showerror('Value Error', 'Cash value must be numeric', parent=self)
                 error = 1
-            elif len(self.cash) == 0:
-                self.cash = 0
             else:
                 self.cash = float(self.cash)
             if error == 0 and self.cash < 0:
