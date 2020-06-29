@@ -2374,6 +2374,15 @@ class Receipt_window(tk.Tk):
 
 class ReceiptCashOrTransfer(tk.Tk):
     def __init__(self, invoice_total, invoice_no, connection, receipt_window, main_menu, email, password, *args, **kwargs):
+        tk.Tk.__init__(self, *args, **kwargs)
+        self.grid_rowconfigure(0, weight=1)
+        self.grid_rowconfigure(1, weight=1)
+        self.grid_rowconfigure(2, weight=1)
+        self.grid_rowconfigure(3, weight=1)
+        self.grid_rowconfigure(4, weight=1)
+        self.grid_columnconfigure(0, weight=1)
+        self.grid_columnconfigure(1, weight=1)
+
         self.invoice_no = invoice_no
         self.invoice_total = invoice_total
         self.report_callback_exception = log_unhandled_exception
@@ -2383,7 +2392,6 @@ class ReceiptCashOrTransfer(tk.Tk):
         self.email_host = email_host
         self.email_port = email_port
         self.main_menu = main_menu
-        tk.Tk.__init__(self, *args, **kwargs)
         self.databaseConnection = connection
         self.geometry(str(round(self.winfo_screenwidth() * 0.38)) + 'x' + str(round(self.winfo_screenheight() * 0.18)))
         self.invoice_total = invoice_total
