@@ -606,12 +606,13 @@ class MainMenu(tk.Frame):
                 balances.append(0)
         balances.reverse()
         f = Figure(figsize=(6, 2))
+        f.suptitle('Monthly Closing Balances')
         f.set_facecolor((0.94, 0.94, 0.93))
         a = f.add_subplot(111, ylim=(0, max(balances)+100))
         a.bar(months, balances)
 
         a.set_ylabel('Dollars ($)')
-        a.tick_params(axis='x',labelsize=7)
+        a.tick_params(axis='x', labelsize=7)
         a.tick_params(axis='y', labelsize=7)
         a.set_facecolor((0.94, 0.94, 0.93))
         canvas = FigureCanvasTkAgg(f, self)
@@ -1043,7 +1044,9 @@ class InvoiceWindow(tk.Tk):
 
         self.members = self.databaseConnection.query("select "
                                                      "concat_ws(' ',member_fname, member_lname) as n, "
-                                                     "member_no from members where member_no != 1")
+                                                     "member_no from members where member_no != 1 "
+                                                     "and"
+                                                     " member_status = 'ACTIVE'")
         self.items_price_var = tk.StringVar(self)
         self.item_qty_var = tk.StringVar(self)
         member_names = [m[0] for m in self.members]
@@ -1052,9 +1055,17 @@ class InvoiceWindow(tk.Tk):
         item_desc = [c[0] for c in self.items]
         self.items = [(c[0], (c[1], c[2])) for c in self.items]
         self.items = dict(self.items)
-        self.geometry(str(round(self.winfo_screenwidth()*0.45))+'x'+str(round(self.winfo_screenheight()*0.5)))
-        self.maxsize(round(self.winfo_screenwidth() * 0.45), round(self.winfo_screenheight() * 0.5))
-        self.minsize(round(self.winfo_screenwidth() * 0.45), round(self.winfo_screenheight() * 0.5))
+        x = self.winfo_screenwidth()
+        y = self.winfo_screenheight()
+        a = 0.4
+        b = 0.5
+        self.geometry(str(round(x * a)) +
+                      'x'
+                      + str(round(y * b)) +
+                      '+'
+                      + str(round((-a * x + x) / 2)) +
+                      '+'
+                      + str(round((-b * y + y) / 2)))
         self.title('Invoicing')
 
         self.member_var = tk.StringVar(self)
@@ -1085,13 +1096,16 @@ class InvoiceWindow(tk.Tk):
         item_remove_button = tk.Button(self, text='-', command=self.remove_item_command)
         item_remove_button.grid(row=2, column=4)
 
+        invoice_font = font.Font(family='Courier', size=10)
+
+
         self.invoice_table = Treeview(self, height=10)
         self.invoice_table["columns"] = ('item_desc', 'unit_price', 'qty', 'subtotal')
-        self.invoice_table.column('#0', width=round(self.winfo_screenwidth() * 0.05), minwidth=50, stretch=tk.NO)
-        self.invoice_table.column('item_desc', width=round(self.winfo_screenwidth() * 0.12), minwidth=50, stretch=tk.NO)
-        self.invoice_table.column('unit_price', width=round(self.winfo_screenwidth() * 0.07), minwidth=50, stretch=tk.NO)
-        self.invoice_table.column('qty', width=round(self.winfo_screenwidth() * 0.06), minwidth=50, stretch=tk.NO)
-        self.invoice_table.column('subtotal', width=round(self.winfo_screenwidth() * 0.06), minwidth=50, stretch=tk.NO)
+        self.invoice_table.column('#0', width=invoice_font.measure("Item Code"), stretch=tk.NO)
+        self.invoice_table.column('item_desc', width=invoice_font.measure("Annual Membership Renewal Fee"),stretch=tk.NO)
+        self.invoice_table.column('unit_price', width=invoice_font.measure("Unit Price"), stretch=tk.NO)
+        self.invoice_table.column('qty', width=invoice_font.measure(" QTY "), stretch=tk.NO)
+        self.invoice_table.column('subtotal', width=invoice_font.measure("Sub Total"), stretch=tk.NO)
 
         self.invoice_table.heading('#0', text="Item Code")
         self.invoice_table.heading('item_desc', text="Item Description")
@@ -2571,6 +2585,18 @@ class ExpenseWindow(tk.Tk):
         self.grid_rowconfigure(6, weight=1)
         self.grid_rowconfigure(7, weight=1)
 
+        x = self.winfo_screenwidth()
+        y = self.winfo_screenheight()
+        a = 0.3
+        b = 0.35
+        self.geometry(str(round(x * a)) +
+                      'x'
+                      + str(round(y * b)) +
+                      '+'
+                      + str(round((-a * x + x) / 2)) +
+                      '+'
+                      + str(round((-b * y + y) / 2)))
+
         self.expenses = self.databaseConnection.query(
             "select expense_description, expense_id from expense where expense_id != 1;")
 
@@ -2789,8 +2815,8 @@ class IncomeWindow(tk.Tk):
         self.grid_columnconfigure(0, weight=1)
         self.grid_columnconfigure(1, weight=1)
         self.grid_columnconfigure(2, weight=1)
-        self.grid_columnconfigure(3, weight=1)
-        self.grid_columnconfigure(4, weight=1)
+        # self.grid_columnconfigure(3, weight=1)
+        # self.grid_columnconfigure(4, weight=1)
         self.grid_rowconfigure(0, weight=1)
         self.grid_rowconfigure(1, weight=1)
         self.grid_rowconfigure(2, weight=1)
@@ -2799,6 +2825,18 @@ class IncomeWindow(tk.Tk):
         self.grid_rowconfigure(5, weight=1)
         self.grid_rowconfigure(6, weight=1)
         self.grid_rowconfigure(7, weight=1)
+
+        x = self.winfo_screenwidth()
+        y = self.winfo_screenheight()
+        a = 0.3
+        b = 0.35
+        self.geometry(str(round(x * a)) +
+                      'x'
+                      + str(round(y * b)) +
+                      '+'
+                      + str(round((-a * x + x) / 2)) +
+                      '+'
+                      + str(round((-b * y + y) / 2)))
 
         self.title('Add Income')
         self.incomes = self.databaseConnection.query(
