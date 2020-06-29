@@ -67,7 +67,7 @@ class App(tk.Tk):
         self.configure(background='black')
         self.screen_height = self.winfo_screenheight()
         self.screen_width = self.winfo_screenwidth()
-        self.title("Monster Truck v2.0.1")
+        self.title("Monster Truck v2.0.2")
         self.geometry(str(self.winfo_screenwidth())+'x'+str(self.winfo_screenheight()))
         self.state('zoomed')
         container = tk.Frame(self)
