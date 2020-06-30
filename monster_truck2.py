@@ -19,6 +19,10 @@ from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
 from matplotlib.figure import Figure
 from openpyxl import Workbook
 
+'''
+v2.0.2
+'''
+
 
 def log_unhandled_exception(type, value, traceback):
     logger.exception('Unhandled Exception', exc_info=(type, value, traceback))
