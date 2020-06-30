@@ -56,6 +56,24 @@ def log_unhandled_exception(type, value, traceback):
     button = tk.Button(top, text="Dismiss", command=top.destroy)
     button.pack()
 
+def invoice_table(window, row=0, column=0, columnspan=1, rowspan=1, pady=0, padx=0):
+    invoice_font = font.Font(family='Courier', size=10)
+    window.invoice_table = Treeview(window, height=10)
+    window.invoice_table["columns"] = ('item_desc', 'unit_price', 'qty', 'subtotal')
+    window.invoice_table.column('#0', width=invoice_font.measure("Item Code"), stretch=tk.NO)
+    window.invoice_table.column('item_desc', width=invoice_font.measure("Annual Membership Renewal Fee"), stretch=tk.NO)
+    window.invoice_table.column('unit_price', width=invoice_font.measure("Unit Price"), stretch=tk.NO)
+    window.invoice_table.column('qty', width=invoice_font.measure(" QTY "), stretch=tk.NO)
+    window.invoice_table.column('subtotal', width=invoice_font.measure("Sub Total"), stretch=tk.NO)
+
+    window.invoice_table.heading('#0', text="Item Code")
+    window.invoice_table.heading('item_desc', text="Item Description")
+    window.invoice_table.heading('unit_price', text="Unit Price")
+    window.invoice_table.heading('qty', text="QTY")
+    window.invoice_table.heading('subtotal', text="Sub Total")
+
+    window.invoice_table.grid(row=row, column=column, rowspan=rowspan, columnspan=columnspan, padx=padx, pady=pady)
+
 
 class App(tk.Tk):
     def __init__(self, connection, email_address, email_password, email_host, email_port, *args, **kwargs):
@@ -762,10 +780,6 @@ class Members(tk.Frame):
             self.showing_active = True
             self.toggle_active_button['text'] = "Show Inactive Members"
 
-
-
-
-
     def exporter(self):
         members_info = self.databaseConnection.query('select '
                                                      'member_no, '
@@ -828,21 +842,37 @@ class Members(tk.Frame):
     def update_window(self):
         # self.databaseConnection.reconnect()
         self.table.delete(*self.table.get_children())
-        members_table = self.databaseConnection.query('select '
-                                                      'member_no, '
-                                                      'member_fname, '
-                                                      'member_lname, '
-                                                      'partner_name, '
-                                                      'street_address, '
-                                                      'suburb, postcode, '
-                                                      'home_phone, '
-                                                      'mobile_phone, '
-                                                      'email, '
-                                                      'member_status '
-                                                      'from members where member_no != 1')
-
-        for row in members_table:
-            self.table.insert('', 'end', text=row[0], values=row[1:])
+        if self.showing_active:
+            self.active_members_table = self.databaseConnection.query('select '
+                                                          'member_no, '
+                                                          'member_fname, '
+                                                          'member_lname, '
+                                                          'partner_name, '
+                                                          'street_address, '
+                                                          'suburb, postcode, '
+                                                          'home_phone, '
+                                                          'mobile_phone, '
+                                                          'email, '
+                                                          'member_status '
+                                                          'from members where member_no != 1 and '
+                                                          'member_status = "ACTIVE";')
+            for row in self.active_members_table:
+                self.table.insert('', 'end', text=row[0], values=row[1:])
+        else:
+            self.full_members_table = self.databaseConnection.query('select '
+                                                          'member_no, '
+                                                          'member_fname, '
+                                                          'member_lname, '
+                                                          'partner_name, '
+                                                          'street_address, '
+                                                          'suburb, postcode, '
+                                                          'home_phone, '
+                                                          'mobile_phone, '
+                                                          'email, '
+                                                          'member_status '
+                                                          'from members where member_no != 1;')
+            for row in self.full_members_table:
+                self.table.insert('', 'end', text=row[0], values=row[1:])
 
 
 class EditMember(tk.Tk):
@@ -1096,24 +1126,22 @@ class InvoiceWindow(tk.Tk):
         item_remove_button = tk.Button(self, text='-', command=self.remove_item_command)
         item_remove_button.grid(row=2, column=4)
 
-        invoice_font = font.Font(family='Courier', size=10)
+        invoice_table(self, row=3, columnspan=5, pady=10)
 
-
-        self.invoice_table = Treeview(self, height=10)
-        self.invoice_table["columns"] = ('item_desc', 'unit_price', 'qty', 'subtotal')
-        self.invoice_table.column('#0', width=invoice_font.measure("Item Code"), stretch=tk.NO)
-        self.invoice_table.column('item_desc', width=invoice_font.measure("Annual Membership Renewal Fee"),stretch=tk.NO)
-        self.invoice_table.column('unit_price', width=invoice_font.measure("Unit Price"), stretch=tk.NO)
-        self.invoice_table.column('qty', width=invoice_font.measure(" QTY "), stretch=tk.NO)
-        self.invoice_table.column('subtotal', width=invoice_font.measure("Sub Total"), stretch=tk.NO)
-
-        self.invoice_table.heading('#0', text="Item Code")
-        self.invoice_table.heading('item_desc', text="Item Description")
-        self.invoice_table.heading('unit_price', text="Unit Price")
-        self.invoice_table.heading('qty', text="QTY")
-        self.invoice_table.heading('subtotal', text="Sub Total")
-
-        self.invoice_table.grid(columnspan=5, row=3, pady=10)
+        # invoice_font = font.Font(family='Courier', size=10)
+        # self.invoice_table = Treeview(self, height=10)
+        # self.invoice_table["columns"] = ('item_desc', 'unit_price', 'qty', 'subtotal')
+        # self.invoice_table.column('#0', width=invoice_font.measure("Item Code"), stretch=tk.NO)
+        # self.invoice_table.column('item_desc', width=invoice_font.measure("Annual Membership Renewal Fee"),stretch=tk.NO)
+        # self.invoice_table.column('unit_price', width=invoice_font.measure("Unit Price"), stretch=tk.NO)
+        # self.invoice_table.column('qty', width=invoice_font.measure(" QTY "), stretch=tk.NO)
+        # self.invoice_table.column('subtotal', width=invoice_font.measure("Sub Total"), stretch=tk.NO)
+        # self.invoice_table.heading('#0', text="Item Code")
+        # self.invoice_table.heading('item_desc', text="Item Description")
+        # self.invoice_table.heading('unit_price', text="Unit Price")
+        # self.invoice_table.heading('qty', text="QTY")
+        # self.invoice_table.heading('subtotal', text="Sub Total")
+        # self.invoice_table.grid(columnspan=5, row=3, pady=10)
 
         self.invoice_total_var = tk.StringVar(self)
         self.invoice_total_var.set('$0.00')
@@ -1614,27 +1642,28 @@ class HistoryWindow(tk.Tk):
                         self.send_invoice_button['font'] = button_font
                         self.send_invoice_button.grid(row=6, column=2)
 
-                    self.receipt_table = Treeview(self)
-                    self.receipt_table["columns"] = ('item_desc', 'unit_price', 'qty', 'subtotal')
-                    self.receipt_table.column('#0', width=round(self.winfo_screenwidth() * 0.05), minwidth=50, stretch=tk.NO)
-                    self.receipt_table.column('item_desc', width=round(self.winfo_screenwidth() * 0.12), minwidth=50,
-                                              stretch=tk.NO)
-                    self.receipt_table.column('unit_price', width=round(self.winfo_screenwidth() * 0.07), minwidth=50,
-                                              stretch=tk.NO)
-                    self.receipt_table.column('qty', width=round(self.winfo_screenwidth() * 0.06), minwidth=50, stretch=tk.NO)
-                    self.receipt_table.column('subtotal', width=round(self.winfo_screenwidth() * 0.06), minwidth=50,
-                                              stretch=tk.NO)
-
-                    self.receipt_table.heading('#0', text="Item Code")
-                    self.receipt_table.heading('item_desc', text="Item Description")
-                    self.receipt_table.heading('unit_price', text="Unit Price")
-                    self.receipt_table.heading('qty', text="QTY")
-                    self.receipt_table.heading('subtotal', text="Sub Total")
-
-                    self.receipt_table.grid(row=7, columnspan=3, pady=(0,10))
+                    # self.receipt_table = Treeview(self)
+                    # self.receipt_table["columns"] = ('item_desc', 'unit_price', 'qty', 'subtotal')
+                    # self.receipt_table.column('#0', width=round(self.winfo_screenwidth() * 0.05), minwidth=50, stretch=tk.NO)
+                    # self.receipt_table.column('item_desc', width=round(self.winfo_screenwidth() * 0.12), minwidth=50,
+                    #                           stretch=tk.NO)
+                    # self.receipt_table.column('unit_price', width=round(self.winfo_screenwidth() * 0.07), minwidth=50,
+                    #                           stretch=tk.NO)
+                    # self.receipt_table.column('qty', width=round(self.winfo_screenwidth() * 0.06), minwidth=50, stretch=tk.NO)
+                    # self.receipt_table.column('subtotal', width=round(self.winfo_screenwidth() * 0.06), minwidth=50,
+                    #                           stretch=tk.NO)
+                    #
+                    # self.receipt_table.heading('#0', text="Item Code")
+                    # self.receipt_table.heading('item_desc', text="Item Description")
+                    # self.receipt_table.heading('unit_price', text="Unit Price")
+                    # self.receipt_table.heading('qty', text="QTY")
+                    # self.receipt_table.heading('subtotal', text="Sub Total")
+                    #
+                    # self.receipt_table.grid(row=7, columnspan=3, pady=(0,10))
+                    invoice_table(self, row=7, columnspan=3, pady=(0,10))
 
                     for row in self.invoice_line:
-                        self.receipt_table.insert('', 'end', text=row[0], values=row[1:])
+                        self.invoice_table.insert('', 'end', text=row[0], values=row[1:])
 
                     self.refund_button = tk.Button(self, text='Refund', command=self.refund_invoice)
                     self.refund_button['font'] = button_font
@@ -1951,29 +1980,31 @@ class HistoryWindow(tk.Tk):
                         self.send_invoice_button['font'] = button_font
                         self.send_invoice_button.grid(row=6, column=2)
 
-                    self.receipt_table = Treeview(self)
-                    self.receipt_table["columns"] = ('item_desc', 'unit_price', 'qty', 'subtotal')
-                    self.receipt_table.column('#0', width=round(self.winfo_screenwidth() * 0.05), minwidth=50,
-                                              stretch=tk.NO)
-                    self.receipt_table.column('item_desc', width=round(self.winfo_screenwidth() * 0.12), minwidth=50,
-                                              stretch=tk.NO)
-                    self.receipt_table.column('unit_price', width=round(self.winfo_screenwidth() * 0.07), minwidth=50,
-                                              stretch=tk.NO)
-                    self.receipt_table.column('qty', width=round(self.winfo_screenwidth() * 0.06), minwidth=50,
-                                              stretch=tk.NO)
-                    self.receipt_table.column('subtotal', width=round(self.winfo_screenwidth() * 0.06), minwidth=50,
-                                              stretch=tk.NO)
+                    # self.receipt_table = Treeview(self)
+                    # self.receipt_table["columns"] = ('item_desc', 'unit_price', 'qty', 'subtotal')
+                    # self.receipt_table.column('#0', width=round(self.winfo_screenwidth() * 0.05), minwidth=50,
+                    #                           stretch=tk.NO)
+                    # self.receipt_table.column('item_desc', width=round(self.winfo_screenwidth() * 0.12), minwidth=50,
+                    #                           stretch=tk.NO)
+                    # self.receipt_table.column('unit_price', width=round(self.winfo_screenwidth() * 0.07), minwidth=50,
+                    #                           stretch=tk.NO)
+                    # self.receipt_table.column('qty', width=round(self.winfo_screenwidth() * 0.06), minwidth=50,
+                    #                           stretch=tk.NO)
+                    # self.receipt_table.column('subtotal', width=round(self.winfo_screenwidth() * 0.06), minwidth=50,
+                    #                           stretch=tk.NO)
+                    #
+                    # self.receipt_table.heading('#0', text="Item Code")
+                    # self.receipt_table.heading('item_desc', text="Item Description")
+                    # self.receipt_table.heading('unit_price', text="Unit Price")
+                    # self.receipt_table.heading('qty', text="QTY")
+                    # self.receipt_table.heading('subtotal', text="Sub Total")
+                    #
+                    # self.receipt_table.grid(row=7, columnspan=3, pady=(0, 10))
 
-                    self.receipt_table.heading('#0', text="Item Code")
-                    self.receipt_table.heading('item_desc', text="Item Description")
-                    self.receipt_table.heading('unit_price', text="Unit Price")
-                    self.receipt_table.heading('qty', text="QTY")
-                    self.receipt_table.heading('subtotal', text="Sub Total")
-
-                    self.receipt_table.grid(row=7, columnspan=3, pady=(0, 10))
+                    invoice_table(self, row=7, columnspan=3, pady=(0,10))
 
                     for row in self.invoice_line:
-                        self.receipt_table.insert('', 'end', text=row[0], values=row[1:])
+                        self.invoice_table.insert('', 'end', text=row[0], values=row[1:])
 
                     self.attributes("-topmost", True)  # #
                 else:
@@ -2287,25 +2318,27 @@ class Receipt_window(tk.Tk):
         b = 0.5
         self.geometry(str(round(x * a)) + 'x' + str(round(y * b)) + '+' + str(round((-a * x + x) / 2)) + '+' + str(round((-b * y + y) / 2)))
 
-        self.title('New Receipt')
+        self.title('Unpaid Invoice')
 
-        self.invoice_table = Treeview(self)
+        # self.invoice_table = Treeview(self)
+        #
+        # self.invoice_table["columns"] = ('item_desc', 'unit_price', 'qty', 'subtotal')
+        # self.invoice_table.column('#0', width=round(self.winfo_screenwidth() * 0.05), minwidth=50, stretch=tk.NO)
+        # self.invoice_table.column('item_desc', width=round(self.winfo_screenwidth() * 0.12), minwidth=50, stretch=tk.NO)
+        # self.invoice_table.column('unit_price', width=round(self.winfo_screenwidth() * 0.07), minwidth=50,
+        #                           stretch=tk.NO)
+        # self.invoice_table.column('qty', width=round(self.winfo_screenwidth() * 0.06), minwidth=50, stretch=tk.NO)
+        # self.invoice_table.column('subtotal', width=round(self.winfo_screenwidth() * 0.06), minwidth=50, stretch=tk.NO)
+        #
+        # self.invoice_table.heading('#0', text="Item Code")
+        # self.invoice_table.heading('item_desc', text="Item Description")
+        # self.invoice_table.heading('unit_price', text="Unit Price")
+        # self.invoice_table.heading('qty', text="QTY")
+        # self.invoice_table.heading('subtotal', text="Sub Total")
+        #
+        # self.invoice_table.grid(row=4, columnspan=3)
 
-        self.invoice_table["columns"] = ('item_desc', 'unit_price', 'qty', 'subtotal')
-        self.invoice_table.column('#0', width=round(self.winfo_screenwidth() * 0.05), minwidth=50, stretch=tk.NO)
-        self.invoice_table.column('item_desc', width=round(self.winfo_screenwidth() * 0.12), minwidth=50, stretch=tk.NO)
-        self.invoice_table.column('unit_price', width=round(self.winfo_screenwidth() * 0.07), minwidth=50,
-                                  stretch=tk.NO)
-        self.invoice_table.column('qty', width=round(self.winfo_screenwidth() * 0.06), minwidth=50, stretch=tk.NO)
-        self.invoice_table.column('subtotal', width=round(self.winfo_screenwidth() * 0.06), minwidth=50, stretch=tk.NO)
-
-        self.invoice_table.heading('#0', text="Item Code")
-        self.invoice_table.heading('item_desc', text="Item Description")
-        self.invoice_table.heading('unit_price', text="Unit Price")
-        self.invoice_table.heading('qty', text="QTY")
-        self.invoice_table.heading('subtotal', text="Sub Total")
-
-        self.invoice_table.grid(row=4, columnspan=3)
+        invoice_table(self, row=4, columnspan=3)
 
         for row in self.invoice_lines:
             self.invoice_table.insert('', 'end', text=row[0], values=row[1:])
