@@ -13,6 +13,7 @@ from tkcalendar import DateEntry
 from os import startfile
 from re import match
 from database_connection import MydatabaseConnection as myDb
+from database_connection import errors as db_errors
 from email_test import Emailer
 import matplotlib.pyplot as plt
 from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
@@ -78,15 +79,57 @@ def invoice_table(window, row=0, column=0, columnspan=1, rowspan=1, pady=0, padx
 
     window.invoice_table.grid(row=row, column=column, rowspan=rowspan, columnspan=columnspan, padx=padx, pady=pady)
 
+def parse_settings():
+    setting = open('./config/settings.txt', 'r')
+    settings = setting.read()
+    settings = settings.splitlines()
+    settings = [i.split(':') for i in settings]
+    settings = dict(settings)
+    email_address = settings['email']
+    email_host = settings['email_host']
+    email_port = settings['smtp_port']
+    email_password = settings['email_password']
+    database_user = settings['db_user']
+    database_password = settings['db_password']
+    host = settings['host']
+    database_name = settings['db']
+    setting.close()
+    return email_address, email_host, email_port, email_password, database_user, database_password, host, database_name
+
+def connect_database(database_user, database_password, host, database_name):
+    databaseConnection = myDb(database_user, database_password, host, database_name)  # initialise db connection
+    return databaseConnection
+
+def not_connected_message(window):
+    messagebox.showerror('Database Connection', 'Not connected to database. Add databases credentials to settings.txt',
+                         parent=window)
+
+def donothing():
+    pass
+
 
 class App(tk.Tk):
-    def __init__(self, connection, email_address, email_password, email_host, email_port, *args, **kwargs):
+    def __init__(self,  email_address, email_password, email_host, email_port, connection,*args, **kwargs):
         tk.Tk.__init__(self, *args, **kwargs)
         print('Loading App...')
         s = Style()
         s.theme_use('clam')
         self.report_callback_exception = log_unhandled_exception
-        self.configure(background='black')
+        self.menubar = tk.Menu(self)
+
+        self.file_menu = tk.Menu(self.menubar, tearoff=0)
+        self.file_menu.add_command(label='Exit', command=exit)
+        self.menubar.add_cascade(label='File', menu=self.file_menu)
+
+        self.settings_menu = tk.Menu(self.menubar, tearoff=0)
+        self.settings_menu.add_command(label='Email Settings', command=donothing)
+        self.settings_menu.add_command(label='Database Settings', command=donothing)
+        self.menubar.add_cascade(label='Settings', menu=self.settings_menu)
+
+        self.database_menu = tk.Menu(self.menubar, tearoff=0)
+        self.database_menu.add_command(label='Database Connection', command=donothing)
+        self.menubar.add_cascade(label='Database', menu=self.database_menu)
+        self.configure(background='black', menu=self.menubar)
         self.screen_height = self.winfo_screenheight()
         self.screen_width = self.winfo_screenwidth()
         self.title("Monster Truck v2.0.2")
@@ -98,7 +141,7 @@ class App(tk.Tk):
         container.grid_columnconfigure(0, weight=1)
 
         self.frames = {}
-        for F in (MainMenu, Members, CommitteeReport):
+        for F in (MainMenu, Members):
             print(f'Loading {F.__name__}')
             if F == MainMenu:
                 frame = F(container, self, connection=connection, email_address=email_address,
@@ -112,16 +155,12 @@ class App(tk.Tk):
                 frame = F(container, self, connection=connection)
                 self.frames[F] = frame
                 frame.grid(row=0, column=0, sticky='NSEW')
-            print(f'{F.__name__} Loaded')
+            print(f'\t{F.__name__} Loaded')
         self.show_frame(MainMenu)
 
     def show_frame(self, page):
         frame = self.frames[page]
         frame.tkraise()
-
-    def show_committee_report(self):
-        self.frames[CommitteeReport].update_balance()
-        self.show_frame(CommitteeReport)
 
 
 class MainMenu(tk.Frame):
@@ -150,16 +189,19 @@ class MainMenu(tk.Frame):
         self.grid_rowconfigure(6, weight=1)
         self.grid_rowconfigure(7, weight=1)
         self.grid_rowconfigure(8, weight=1)
-        self.unsent_invoices = self.connect.query('select '
-                                                  'concat(invoice_no,".pdf") as filename, '
-                                                  'email '
-                                                  'from '
-                                                  'invoice '
-                                                  'join '
-                                                  'members '
-                                                  'on '
-                                                  'invoice.member_no = members.member_no '
-                                                  'where invoice_sent = "No";')
+        if connection != None:
+            self.unsent_invoices = self.connect.query('select '
+                                                      'concat(invoice_no,".pdf") as filename, '
+                                                      'email '
+                                                      'from '
+                                                      'invoice '
+                                                      'join '
+                                                      'members '
+                                                      'on '
+                                                      'invoice.member_no = members.member_no '
+                                                      'where invoice_sent = "No";')
+        else:
+            self.unsent_invoices = []
 
         button_font = font.Font(family='Courier', size=15, weight='bold')
 
@@ -267,20 +309,21 @@ class MainMenu(tk.Frame):
         self.history_table.heading('bank_balance', text="Bank Balance")
         self.history_table.bind("<Double-1>", self.on_double_click_history)
 
-        self.populate_invoice_table()
-        self.populate_history_table()
+        if connection != None:
+            self.populate_invoice_table()
+            self.populate_history_table()
+
+            try:
+                self.exporter()
+            except PermissionError:
+                messagebox.showerror('Members Export Error', '"members_list.xlsx" failed to update.\n'
+                                                             'Make sure "members_list.xlsx" is not open.')
+                # error when file is open already
 
         self.update_balance()
 
-        try:
-            self.exporter()
-        except PermissionError:
-            messagebox.showerror('Members Export Error', '"members_list.xlsx" failed to update.\n'
-                                                         'Make sure "members_list.xlsx" is not open.')
-            # error when file is open already
-
     def exporter(self):
-        print(f'Exporting member data to members_list.xlsx{"."*10}', end='')
+        print(f'\t\t\tExporting member data to members_list.xlsx{"."*10}', end='')
         members_info = self.connect.query('select '
                                                      'member_no, '
                                                      'member_fname, '
@@ -409,10 +452,10 @@ class MainMenu(tk.Frame):
     def create_temp_table(self):
         self.connect.insert('set @cashSum := 0;')
         self.connect.insert('set @bankSum := 0;')
-        print(f'Dropping payment_history{"."*10}', end='')
+        print(f'\t\tDropping payment_history{"."*10}', end='')
         self.connect.insert('drop table if exists payment_history;')
         print('Dropped')
-        print(f'Creating new payment_history{"."*10}', end='')
+        print(f'\t\tCreating new payment_history{"."*10}', end='')
         self.connect.insert('create table payment_history '
                             'select '
                             'n, payment_datetime, '
@@ -454,19 +497,23 @@ class MainMenu(tk.Frame):
         print('Done')
 
     def on_double_click_invoice(self, a):
-        item = self.invoices_table.selection()
-        invoice_no = self.invoices_table.item(item, 'text')
-        Receipt_window(invoice_no, self.connect, self, self.email_address, self.email_password, self.email_host, self.email_port)
+        if self.connect != None:
+            item = self.invoices_table.selection()
+            invoice_no = self.invoices_table.item(item, 'text')
+            Receipt_window(invoice_no, self.connect, self, self.email_address, self.email_password, self.email_host, self.email_port)
 
     def on_double_click_history(self, a):
-        item = self.history_table.selection()
-        receipt_no = self.history_table.item(item, 'value')
-        receipt_type = self.history_table.item(item, 'text')
-        HistoryWindow(receipt_no[0], self.connect, self, receipt_type, self.email_address, self.email_password, self.email_host, self.email_port)
+        if self.connect != None:
+            item = self.history_table.selection()
+            receipt_no = self.history_table.item(item, 'value')
+            receipt_type = self.history_table.item(item, 'text')
+            HistoryWindow(receipt_no[0], self.connect, self, receipt_type, self.email_address, self.email_password, self.email_host, self.email_port)
 
     def update_balance(self):
-        self.balances = self.transaction_history[0][-2:]
-        self.month_in = self.connect.query('select '
+
+        if self.connect != None:
+            self.balances = self.transaction_history[0][-2:]
+            self.month_in = self.connect.query('select '
                                                        'sum(cash_amount)+sum(transfer_amount) '
                                                        'from '
                                                        '(\n'
@@ -498,7 +545,7 @@ class MainMenu(tk.Frame):
                                                        ' and '
                                                        '(cash_amount > 0 or transfer_amount > 0)\n'
                                                        'order by payment_datetime desc;')
-        self.month_out = self.connect.query('select '
+            self.month_out = self.connect.query('select '
                                                        'sum(cash_amount)+sum(transfer_amount) '
                                                        'from '
                                                        '(\n'
@@ -530,8 +577,12 @@ class MainMenu(tk.Frame):
                                                        ' and '
                                                        '(cash_amount < 0 or transfer_amount < 0)\n'
                                                        'order by payment_datetime desc;')
-        self.month_in = self.month_in[0][0]
-        self.month_out = self.month_out[0][0]
+            self.month_in = self.month_in[0][0]
+            self.month_out = self.month_out[0][0]
+        else:
+            self.month_in = 0
+            self.month_out = 0
+            self.balances = (0,0)
 
         self.cash_balance_label = tk.Label(self,
                                            text=f'Cash Balance: ${self.balances[0]}\n'
@@ -576,42 +627,46 @@ class MainMenu(tk.Frame):
             self.month_out = 0
         self.money_in_out_label.configure(text=f'{self.current_month} Money In: ${self.month_in}\n{self.current_month} Money Out: ${self.month_out}',
                                                   font='courier 15 bold')
+        if self.connect != None:
+            self.connect.insert('set @cashSum := 0;')
+            self.connect.insert('set @bankSum := 0;')
+            self.connect.insert('drop temporary table if exists last_payment_of_month;')
+            self.connect.insert(
+                'create temporary table last_payment_of_month '
+                'select distinct(max(payment_datetime)) '
+                'as '
+                'payment_datetime '
+                'from '
+                '((select payment_datetime from invoice_receipt) '
+                'union all '
+                '(select payment_datetime from expense_receipt))'
+                ' as hista '
+                'group by DATE_FORMAT(payment_datetime, "%Y-%m");')
 
-        self.connect.insert('set @cashSum := 0;')
-        self.connect.insert('set @bankSum := 0;')
-        self.connect.insert('drop temporary table if exists last_payment_of_month;')
-        self.connect.insert(
-            'create temporary table last_payment_of_month '
-            'select distinct(max(payment_datetime)) '
-            'as '
-            'payment_datetime '
-            'from '
-            '((select payment_datetime from invoice_receipt) '
-            'union all '
-            '(select payment_datetime from expense_receipt))'
-            ' as hista '
-            'group by DATE_FORMAT(payment_datetime, "%Y-%m");')
+            self.end_of_month_balance = self.connect.query(
+                'select distinct(DATE_FORMAT(payment_datetime, "%Y-%m")), '
+                'cash_balance + bank_balance '
+                'from '
+                '(select payment_datetime, cash_amount, transfer_amount, (@cashSum := @cashSum + cash_amount)'
+                ' as cash_balance, '
+                '(@bankSum := @bankSum + transfer_amount) as bank_balance '
+                'from '
+                '((select invoice_no as n, payment_datetime, cash_amount, transfer_amount from invoice_receipt) '
+                'union all	'
+                '(select expense_receipt_no as n, payment_datetime, cash_amount, transfer_amount from expense_receipt) '
+                'union all '
+                '(select income_receipt_no as n, payment_datetime, cash_amount, transfer_amount from income_receipt) ) '
+                'as hist '
+                'order by payment_datetime ) '
+                'as i  '
+                'where payment_datetime in (select distinct(payment_datetime) from last_payment_of_month) '
+                'and '
+                'payment_datetime between now() - INTERVAL 6 MONTH and NOW() '
+                'order by payment_datetime desc;')
+        else:
 
-        self.end_of_month_balance = self.connect.query(
-            'select distinct(DATE_FORMAT(payment_datetime, "%Y-%m")), '
-            'cash_balance + bank_balance '
-            'from '
-            '(select payment_datetime, cash_amount, transfer_amount, (@cashSum := @cashSum + cash_amount)'
-            ' as cash_balance, '
-            '(@bankSum := @bankSum + transfer_amount) as bank_balance '
-            'from '
-            '((select invoice_no as n, payment_datetime, cash_amount, transfer_amount from invoice_receipt) '
-            'union all	'
-            '(select expense_receipt_no as n, payment_datetime, cash_amount, transfer_amount from expense_receipt) '
-            'union all '
-            '(select income_receipt_no as n, payment_datetime, cash_amount, transfer_amount from income_receipt) ) '
-            'as hist '
-            'order by payment_datetime ) '
-            'as i  '
-            'where payment_datetime in (select distinct(payment_datetime) from last_payment_of_month) '
-            'and '
-            'payment_datetime between now() - INTERVAL 6 MONTH and NOW() '
-            'order by payment_datetime desc;')
+            self.end_of_month_balance = [(datetime.today() - relativedelta(months=i),0) for i in range(0,6)]
+
         months = [c[0] for c in self.end_of_month_balance]
         if len(months) < 6:
             last_month = datetime.strptime(months[-1], '%Y-%m')
@@ -661,8 +716,8 @@ class Members(tk.Frame):
         self.grid_rowconfigure(1, weight=1)
         self.grid_rowconfigure(2, weight=1)
 
-
-        self.active_members_table = self.databaseConnection.query('select '
+        if self.databaseConnection != None:
+            self.active_members_table = self.databaseConnection.query('select '
                                                       'member_no, '
                                                       'member_fname, '
                                                       'member_lname, '
@@ -675,7 +730,8 @@ class Members(tk.Frame):
                                                       'member_status '
                                                       'from members where member_no != 1 and '
                                                       'member_status = "ACTIVE";')
-
+        else:
+            self.active_members_table = []
 
 
         self.member_label = tk.Label(self, text='Members Menu', font='courier 40 bold')
@@ -746,96 +802,102 @@ class Members(tk.Frame):
         self.showing_active = True
 
     def toggle_active(self):
-        if self.showing_active:
-            self.full_members_table = self.databaseConnection.query('select '
-                                                                    'member_no, '
-                                                                    'member_fname, '
-                                                                    'member_lname, '
-                                                                    'partner_name, '
-                                                                    'street_address, '
-                                                                    'suburb, postcode, '
-                                                                    'home_phone, '
-                                                                    'mobile_phone, '
-                                                                    'email, '
-                                                                    'member_status '
-                                                                    'from members where member_no != 1 ;')
-            self.table.delete(*self.table.get_children())
-            for row in self.full_members_table:
-                self.table.insert('', 'end', text=row[0], values=row[1:])
-            self.showing_active = False
-            self.toggle_active_button['text'] = "Hide Inactive Members"
+        if self.databaseConnection != None:
+            if self.showing_active:
+                self.full_members_table = self.databaseConnection.query('select '
+                                                                        'member_no, '
+                                                                        'member_fname, '
+                                                                        'member_lname, '
+                                                                        'partner_name, '
+                                                                        'street_address, '
+                                                                        'suburb, postcode, '
+                                                                        'home_phone, '
+                                                                        'mobile_phone, '
+                                                                        'email, '
+                                                                        'member_status '
+                                                                        'from members where member_no != 1 ;')
+                self.table.delete(*self.table.get_children())
+                for row in self.full_members_table:
+                    self.table.insert('', 'end', text=row[0], values=row[1:])
+                self.showing_active = False
+                self.toggle_active_button['text'] = "Hide Inactive Members"
+            else:
+                self.table.delete(*self.table.get_children())
+                self.active_members_table = self.databaseConnection.query('select '
+                                                                          'member_no, '
+                                                                          'member_fname, '
+                                                                          'member_lname, '
+                                                                          'partner_name, '
+                                                                          'street_address, '
+                                                                          'suburb, postcode, '
+                                                                          'home_phone, '
+                                                                          'mobile_phone, '
+                                                                          'email, '
+                                                                          'member_status '
+                                                                          'from members where member_no != 1 and '
+                                                                          'member_status = "ACTIVE";')
+                for row in self.active_members_table:
+                    self.table.insert('', 'end', text=row[0], values=row[1:])
+                self.showing_active = True
+                self.toggle_active_button['text'] = "Show Inactive Members"
         else:
-            self.table.delete(*self.table.get_children())
-            self.active_members_table = self.databaseConnection.query('select '
-                                                                      'member_no, '
-                                                                      'member_fname, '
-                                                                      'member_lname, '
-                                                                      'partner_name, '
-                                                                      'street_address, '
-                                                                      'suburb, postcode, '
-                                                                      'home_phone, '
-                                                                      'mobile_phone, '
-                                                                      'email, '
-                                                                      'member_status '
-                                                                      'from members where member_no != 1 and '
-                                                                      'member_status = "ACTIVE";')
-            for row in self.active_members_table:
-                self.table.insert('', 'end', text=row[0], values=row[1:])
-            self.showing_active = True
-            self.toggle_active_button['text'] = "Show Inactive Members"
+            not_connected_message(self)
 
     def exporter(self):
-        members_info = self.databaseConnection.query('select '
-                                                     'member_no, '
-                                                     'member_fname, '
-                                                     'member_lname, '
-                                                     'partner_name, '
-                                                     'street_address, '
-                                                     'suburb, postcode, state, '
-                                                     'home_phone, '
-                                                     'mobile_phone, '
-                                                     'email '
-                                                     'from members where member_no != 1 and member_status = "ACTIVE"')
+        if self.databaseConnection != None:
+            members_info = self.databaseConnection.query('select '
+                                                         'member_no, '
+                                                         'member_fname, '
+                                                         'member_lname, '
+                                                         'partner_name, '
+                                                         'street_address, '
+                                                         'suburb, postcode, state, '
+                                                         'home_phone, '
+                                                         'mobile_phone, '
+                                                         'email '
+                                                         'from members where member_no != 1 and member_status = "ACTIVE"')
 
-        workbook = Workbook()
-        sheet = workbook.active
+            workbook = Workbook()
+            sheet = workbook.active
 
-        sheet.column_dimensions['A'].width = 10
-        sheet.column_dimensions['B'].width = 15
-        sheet.column_dimensions['C'].width = 15
-        sheet.column_dimensions['D'].width = 20
-        sheet.column_dimensions['E'].width = 25
-        sheet.column_dimensions['F'].width = 20
-        sheet.column_dimensions['G'].width = 10
-        sheet.column_dimensions['H'].width = 10
-        sheet.column_dimensions['I'].width = 15
-        sheet.column_dimensions['J'].width = 15
-        sheet.column_dimensions['K'].width = 30
+            sheet.column_dimensions['A'].width = 10
+            sheet.column_dimensions['B'].width = 15
+            sheet.column_dimensions['C'].width = 15
+            sheet.column_dimensions['D'].width = 20
+            sheet.column_dimensions['E'].width = 25
+            sheet.column_dimensions['F'].width = 20
+            sheet.column_dimensions['G'].width = 10
+            sheet.column_dimensions['H'].width = 10
+            sheet.column_dimensions['I'].width = 15
+            sheet.column_dimensions['J'].width = 15
+            sheet.column_dimensions['K'].width = 30
 
-        sheet['A1'] = 'Member No'
-        sheet['B1'] = 'First Name'
-        sheet['C1'] = 'Last Name'
-        sheet['D1'] = 'Partner Name'
-        sheet['E1'] = 'Street Address'
-        sheet['F1'] = 'Suburb'
-        sheet['G1'] = 'Postcode'
-        sheet['H1'] = 'State'
-        sheet['I1'] = 'Home Phone'
-        sheet['J1'] = 'Mobile Phone'
-        sheet['K1'] = 'Email'
+            sheet['A1'] = 'Member No'
+            sheet['B1'] = 'First Name'
+            sheet['C1'] = 'Last Name'
+            sheet['D1'] = 'Partner Name'
+            sheet['E1'] = 'Street Address'
+            sheet['F1'] = 'Suburb'
+            sheet['G1'] = 'Postcode'
+            sheet['H1'] = 'State'
+            sheet['I1'] = 'Home Phone'
+            sheet['J1'] = 'Mobile Phone'
+            sheet['K1'] = 'Email'
 
-        r = 2
-        c = 1
-        for member in members_info:
-            for element in member:
-                cell = sheet.cell(row=r, column=c)
-                cell.value = element
-                c += 1
+            r = 2
             c = 1
-            r += 1
+            for member in members_info:
+                for element in member:
+                    cell = sheet.cell(row=r, column=c)
+                    cell.value = element
+                    c += 1
+                c = 1
+                r += 1
 
-        workbook.save(filename='.\config\members_list.xlsx')
-        messagebox.showinfo('Update Success', 'member_list.xlsx has been successfully updated', parent=self)
+            workbook.save(filename='.\config\members_list.xlsx')
+            messagebox.showinfo('Update Success', 'member_list.xlsx has been successfully updated', parent=self)
+        else:
+            not_connected_message(self)
 
     def on_double_click(self, a):
         item = self.table.selection()
@@ -1076,16 +1138,22 @@ class InvoiceWindow(tk.Tk):
         self.grid_rowconfigure(4, weight=1)
         self.grid_rowconfigure(5, weight=1)
 
-        self.members = self.databaseConnection.query("select "
+        if self.databaseConnection != None:
+            self.members = self.databaseConnection.query("select "
                                                      "concat_ws(' ',member_fname, member_lname) as n, "
                                                      "member_no from members where member_no != 1 "
                                                      "and"
                                                      " member_status = 'ACTIVE'")
+        else:
+            self.members = []
         self.items_price_var = tk.StringVar(self)
         self.item_qty_var = tk.StringVar(self)
         member_names = [m[0] for m in self.members]
         self.members = dict(self.members)
-        self.items = self.databaseConnection.query("select item_description, item_code, item_value from item")
+        if self.databaseConnection != None:
+            self.items = self.databaseConnection.query("select item_description, item_code, item_value from item")
+        else:
+            self.items = []
         item_desc = [c[0] for c in self.items]
         self.items = [(c[0], (c[1], c[2])) for c in self.items]
         self.items = dict(self.items)
@@ -1222,99 +1290,102 @@ class InvoiceWindow(tk.Tk):
         self.invoice_total_var.set(price_string)
 
     def submit_invoice_command(self):
-            invoice_total = str(self.total)
+        if self.databaseConnection != None:
+                invoice_total = str(self.total)
 
-            # self.databaseConnection.reconnect()
-            self.current_invoice_no = self.databaseConnection.query('select max(invoice_no)+1 from invoice;')
+                # self.databaseConnection.reconnect()
+                self.current_invoice_no = self.databaseConnection.query('select max(invoice_no)+1 from invoice;')
 
-            q = invoice_total.split('.')
-            if len(q[1]) == 1:
-                invoice_total = invoice_total + '0'
-
-            self.current_invoice_no = self.current_invoice_no[0][0]
-
-            member_no = self.members[self.member_var.get()]
-            member_name = self.member_var.get()
-            member_details = self.databaseConnection.query(
-                f'select street_address, suburb, postcode, state from members where member_no = {member_no}')
-            member_details = member_details[0]
-
-            pdf_name = f'{self.current_invoice_no}.pdf'
-            due_date = self.duedate.get()
-
-            invoice_copy = InvoiceGenerator(pdf_name, invoice_total, dueDate=due_date[:-4]+due_date[-2:])
-            due_date = '"' + due_date + '"'
-
-            bank_details = self.databaseConnection.query(f'select bank_name, bsb, account_no from bank_detail')
-            bank_details = bank_details[0]
-
-            item_codes = [r[0] for r in self.item_prices]
-            item_descs = [r[1] for r in self.item_prices]
-            item_prices = [r[2] for r in self.item_prices]
-
-            for i in range(len(item_prices)):
-                q = str(item_prices[i]).split('.')
+                q = invoice_total.split('.')
                 if len(q[1]) == 1:
-                    s = str(item_prices[i]) + '0'
-                    item_prices[i] = s
+                    invoice_total = invoice_total + '0'
 
-            item_qtys = [r[3] for r in self.item_prices]
-            subtotals = [r[4] for r in self.item_prices]
+                self.current_invoice_no = self.current_invoice_no[0][0]
 
-            for i in range(len(subtotals)):
-                q = str(subtotals[i]).split('.')
-                if len(q[1]) == 1:
-                    s = str(subtotals[i]) + '0'
-                    subtotals[i] = s
+                member_no = self.members[self.member_var.get()]
+                member_name = self.member_var.get()
+                member_details = self.databaseConnection.query(
+                    f'select street_address, suburb, postcode, state from members where member_no = {member_no}')
+                member_details = member_details[0]
 
-            invoice_copy.memberName(member_name)
-            invoice_copy.invoiceDate(datetime.today().date().strftime('%d-%m-%y'))
-            invoice_copy.invoiceNo(self.current_invoice_no)
-            invoice_copy.streetAdress(member_details[0])
-            invoice_copy.cityStatePostCode(member_details[1], member_details[3], member_details[2])
-            invoice_copy.BankDetails(bank_details[0], bank_details[1], bank_details[2])
-            invoice_copy.invoice_line(item_codes, item_descs, item_prices, item_qtys, subtotals)
-            try:
-                self.databaseConnection.insert(f'insert into invoice '
-                                               f'(invoice_no, '
-                                               f'invoice_date, '
-                                               f'invoice_duedate, '
-                                               f'invoice_total, '
-                                               f'member_no, '
-                                               f'invoice_sent) '
-                                               f'values '
-                                               f'({self.current_invoice_no}, '
-                                               f'now(), '
-                                               f'str_to_date({due_date},"%d/%m/%Y"), '
-                                               f'{invoice_total}, '
-                                               f'{member_no}, '
-                                               f'"No")')
-            except Exception as e:
-                print('Error Logged')
-                logger.exception(e)
-                messagebox.showwarning('Unknown Error',
-                                       f'An unknown error occurred and has been logged. Report to developer.')
-            else:
-                self.databaseConnection.commit()
+                pdf_name = f'{self.current_invoice_no}.pdf'
+                due_date = self.duedate.get()
 
-                for line in self.item_prices:
-                    item_code = line[0]
-                    item_price = line[2]
-                    item_qty = line[3]
-                    try:
-                        self.databaseConnection.insert(f'insert into invoice_line '
-                                                   f'(invoice_no, item_code, item_qty, invoice_item_value) values '
-                                                   f'({self.current_invoice_no}, {item_code}, {item_qty}, {item_price})')
-                    except Exception as e:
-                        print('Error Logged')
-                        logger.exception(e)
-                        messagebox.showwarning('Unknown Error',
-                                               f'An unknown error occurred and has been logged. Report to developer.')
-                self.databaseConnection.commit()
-                invoice_copy.save('.\\config\\invoice_pdfs')
-                self.main_menu.update_tables()
-                self.destroy()
-                messagebox.showinfo('Invoice Created', 'Invoice successfully created', parent=self.main_menu)
+                invoice_copy = InvoiceGenerator(pdf_name, invoice_total, dueDate=due_date[:-4]+due_date[-2:])
+                due_date = '"' + due_date + '"'
+
+                bank_details = self.databaseConnection.query(f'select bank_name, bsb, account_no from bank_detail')
+                bank_details = bank_details[0]
+
+                item_codes = [r[0] for r in self.item_prices]
+                item_descs = [r[1] for r in self.item_prices]
+                item_prices = [r[2] for r in self.item_prices]
+
+                for i in range(len(item_prices)):
+                    q = str(item_prices[i]).split('.')
+                    if len(q[1]) == 1:
+                        s = str(item_prices[i]) + '0'
+                        item_prices[i] = s
+
+                item_qtys = [r[3] for r in self.item_prices]
+                subtotals = [r[4] for r in self.item_prices]
+
+                for i in range(len(subtotals)):
+                    q = str(subtotals[i]).split('.')
+                    if len(q[1]) == 1:
+                        s = str(subtotals[i]) + '0'
+                        subtotals[i] = s
+
+                invoice_copy.memberName(member_name)
+                invoice_copy.invoiceDate(datetime.today().date().strftime('%d-%m-%y'))
+                invoice_copy.invoiceNo(self.current_invoice_no)
+                invoice_copy.streetAdress(member_details[0])
+                invoice_copy.cityStatePostCode(member_details[1], member_details[3], member_details[2])
+                invoice_copy.BankDetails(bank_details[0], bank_details[1], bank_details[2])
+                invoice_copy.invoice_line(item_codes, item_descs, item_prices, item_qtys, subtotals)
+                try:
+                    self.databaseConnection.insert(f'insert into invoice '
+                                                   f'(invoice_no, '
+                                                   f'invoice_date, '
+                                                   f'invoice_duedate, '
+                                                   f'invoice_total, '
+                                                   f'member_no, '
+                                                   f'invoice_sent) '
+                                                   f'values '
+                                                   f'({self.current_invoice_no}, '
+                                                   f'now(), '
+                                                   f'str_to_date({due_date},"%d/%m/%Y"), '
+                                                   f'{invoice_total}, '
+                                                   f'{member_no}, '
+                                                   f'"No")')
+                except Exception as e:
+                    print('Error Logged')
+                    logger.exception(e)
+                    messagebox.showwarning('Unknown Error',
+                                           f'An unknown error occurred and has been logged. Report to developer.')
+                else:
+                    self.databaseConnection.commit()
+
+                    for line in self.item_prices:
+                        item_code = line[0]
+                        item_price = line[2]
+                        item_qty = line[3]
+                        try:
+                            self.databaseConnection.insert(f'insert into invoice_line '
+                                                       f'(invoice_no, item_code, item_qty, invoice_item_value) values '
+                                                       f'({self.current_invoice_no}, {item_code}, {item_qty}, {item_price})')
+                        except Exception as e:
+                            print('Error Logged')
+                            logger.exception(e)
+                            messagebox.showwarning('Unknown Error',
+                                                   f'An unknown error occurred and has been logged. Report to developer.')
+                    self.databaseConnection.commit()
+                    invoice_copy.save('.\\config\\invoice_pdfs')
+                    self.main_menu.update_tables()
+                    self.destroy()
+                    messagebox.showinfo('Invoice Created', 'Invoice successfully created', parent=self.main_menu)
+        else:
+            not_connected_message(self)
 
 
 class NewMemberPage(tk.Tk):
@@ -1430,89 +1501,92 @@ class NewMemberPage(tk.Tk):
         self.attributes("-topmost", True)
 
     def newMemberSubmit(self):
-        fname = self.fname_var.get()
-        fname = fname.capitalize()
-        lname = self.lname_var.get()
-        lname = lname.capitalize()
-        partner = self.partner_var.get()
-        partner = partner.title()
-        address = self.address_var.get()
-        address = address.title()
-        suburb = self.suburb_var.get()
-        suburb = suburb.upper()
-        state = self.state_var.get()
-        postcode = self.postcode_var.get()
-        home_phone = self.home_phone_var.get()
+        if self.dbconnection != None:
+            fname = self.fname_var.get()
+            fname = fname.capitalize()
+            lname = self.lname_var.get()
+            lname = lname.capitalize()
+            partner = self.partner_var.get()
+            partner = partner.title()
+            address = self.address_var.get()
+            address = address.title()
+            suburb = self.suburb_var.get()
+            suburb = suburb.upper()
+            state = self.state_var.get()
+            postcode = self.postcode_var.get()
+            home_phone = self.home_phone_var.get()
 
-        mobile = self.mobile_phone_var.get()
-        email = self.email_var.get()
-        status = self.member_status_var.get()
+            mobile = self.mobile_phone_var.get()
+            email = self.email_var.get()
+            status = self.member_status_var.get()
 
-        errors = []
-        if not postcode.isnumeric() and len(postcode) > 0:
-            errors.append('-Postcode\n')
-            postcode_error = False
-        else:
-            postcode_error = True
-
-        if not home_phone.isnumeric() and len(home_phone) > 0:
-            errors.append('-Home Phone\n')
-            home_phone_error = False
-        else:
-            home_phone_error = True
-
-        if not mobile.isnumeric() and len(mobile) > 0:
-            errors.append('-Mobile Phone\n')
-            mobile_error = False
-        else:
-            mobile_error = True
-
-        if status == None:
-            messagebox.showwarning('Status Error', 'Status must be selected')
-            status_error = False
-        else:
-            status_error = True
-
-        if len(errors) > 0:
-            error_str = ''.join(errors)
-
-        if postcode_error and home_phone_error and mobile_error and status_error:
-            try:
-                self.dbconnection.insert(f'insert'
-                                         f' into members ( '
-                                         f'member_fname, '
-                                         f'member_lname, '
-                                         f'partner_name, '
-                                         f'street_address, '
-                                         f'suburb, state, '
-                                         f'postcode, '
-                                         f'home_phone, '
-                                         f'mobile_phone, '
-                                         f'email, '
-                                         f'member_status) '
-                                         f'values ( '
-                                         f'"{fname}", '
-                                         f'"{lname}", '
-                                         f'"{partner}", '
-                                         f'"{address}", '
-                                         f'"{suburb}", '
-                                         f'"{state}", '
-                                         f'"{postcode}", '
-                                         f'"{home_phone}", '
-                                         f'"{mobile}", '
-                                         f'"{email}", '
-                                         f'"{status}")')
-            except Exception as e:
-                print('Error Logged')
-                logger.exception(e)
-                messagebox.showwarning('Unknown Error',
-                                       f'An unknown error occurred and has been logged. Report to developer.')
+            errors = []
+            if not postcode.isnumeric() and len(postcode) > 0:
+                errors.append('-Postcode\n')
+                postcode_error = False
             else:
-                self.dbconnection.commit()
-                self.member_page.update_window()
-                self.destroy()
+                postcode_error = True
+
+            if not home_phone.isnumeric() and len(home_phone) > 0:
+                errors.append('-Home Phone\n')
+                home_phone_error = False
+            else:
+                home_phone_error = True
+
+            if not mobile.isnumeric() and len(mobile) > 0:
+                errors.append('-Mobile Phone\n')
+                mobile_error = False
+            else:
+                mobile_error = True
+
+            if status == None:
+                messagebox.showwarning('Status Error', 'Status must be selected')
+                status_error = False
+            else:
+                status_error = True
+
+            if len(errors) > 0:
+                error_str = ''.join(errors)
+
+            if postcode_error and home_phone_error and mobile_error and status_error:
+                try:
+                    self.dbconnection.insert(f'insert'
+                                             f' into members ( '
+                                             f'member_fname, '
+                                             f'member_lname, '
+                                             f'partner_name, '
+                                             f'street_address, '
+                                             f'suburb, state, '
+                                             f'postcode, '
+                                             f'home_phone, '
+                                             f'mobile_phone, '
+                                             f'email, '
+                                             f'member_status) '
+                                             f'values ( '
+                                             f'"{fname}", '
+                                             f'"{lname}", '
+                                             f'"{partner}", '
+                                             f'"{address}", '
+                                             f'"{suburb}", '
+                                             f'"{state}", '
+                                             f'"{postcode}", '
+                                             f'"{home_phone}", '
+                                             f'"{mobile}", '
+                                             f'"{email}", '
+                                             f'"{status}")')
+                except Exception as e:
+                    print('Error Logged')
+                    logger.exception(e)
+                    messagebox.showwarning('Unknown Error',
+                                           f'An unknown error occurred and has been logged. Report to developer.')
+                else:
+                    self.dbconnection.commit()
+                    self.member_page.update_window()
+                    self.destroy()
+            else:
+                messagebox.showwarning('Format Error', f'The following fields need to be numeric:\n\n{error_str}')
         else:
-            messagebox.showwarning('Format Error', f'The following fields need to be numeric:\n\n{error_str}')
+            not_connected_message(self)
 
 
 class HistoryWindow(tk.Tk):
@@ -2179,84 +2253,87 @@ class RefundCashOrTransfer(tk.Tk):
         self.submit_button.grid(row=2, column=2, sticky='W')
 
     def submit_refund(self):
-        selected_refund_type = self.refund_type_variable.get()
-        if selected_refund_type != 'None':
-            answer = messagebox.askyesno('Refund',
-                                         f'Are you sure you want to refund ${self.receipt_data["invoice_total"]}\n '
-                                         f'to {self.receipt_data["fullname"]} via {selected_refund_type}?',
-                                         parent=self)
-            if answer:
-                current_refund_no = self.databaseConnection.query(f'select auto_increment from '
-                                                                  f'information_schema.tables '
-                                                                  f'where table_schema = "{database_name}" '
-                                                                  f'and table_name = "refunds";')
-                if selected_refund_type == 'cash':
-                    self.cash_refund = self.receipt_data['invoice_total']
-                    self.transfer_refund = 0
-                else:
-                    self.cash_refund = 0
-                    self.transfer_refund = self.receipt_data['invoice_total']
+        if self.databaseConnection != None:
+            selected_refund_type = self.refund_type_variable.get()
+            if selected_refund_type != 'None':
+                answer = messagebox.askyesno('Refund',
+                                             f'Are you sure you want to refund ${self.receipt_data["invoice_total"]}\n '
+                                             f'to {self.receipt_data["fullname"]} via {selected_refund_type}?',
+                                             parent=self)
+                if answer:
+                    current_refund_no = self.databaseConnection.query(f'select auto_increment from '
+                                                                      f'information_schema.tables '
+                                                                      f'where table_schema = "{database_name}" '
+                                                                      f'and table_name = "refunds";')
+                    if selected_refund_type == 'cash':
+                        self.cash_refund = self.receipt_data['invoice_total']
+                        self.transfer_refund = 0
+                    else:
+                        self.cash_refund = 0
+                        self.transfer_refund = self.receipt_data['invoice_total']
 
-                current_refund_no = current_refund_no[0][0]
+                    current_refund_no = current_refund_no[0][0]
 
-                today = datetime.today().strftime(format='%d-%m-%Y')
-                refund_pdf = RefundGenerator(pdf_name=f'{current_refund_no}.pdf',
-                                             invoice_total=self.receipt_data['invoice_total'],
-                                             cash_paid=self.receipt_data['cash_amount'],
-                                             transfer_paid=self.receipt_data['transfer_amount'],
-                                             amount_paid=self.receipt_data['invoice_total'],
-                                             amount_refunded=self.receipt_data['invoice_total'],
-                                             cash_or_transfer=selected_refund_type.capitalize())
+                    today = datetime.today().strftime(format='%d-%m-%Y')
+                    refund_pdf = RefundGenerator(pdf_name=f'{current_refund_no}.pdf',
+                                                 invoice_total=self.receipt_data['invoice_total'],
+                                                 cash_paid=self.receipt_data['cash_amount'],
+                                                 transfer_paid=self.receipt_data['transfer_amount'],
+                                                 amount_paid=self.receipt_data['invoice_total'],
+                                                 amount_refunded=self.receipt_data['invoice_total'],
+                                                 cash_or_transfer=selected_refund_type.capitalize())
 
-                item_codes = [c[0] for c in self.receipt_line]
-                item_desc = [c[1] for c in self.receipt_line]
-                item_qty = [c[3] for c in self.receipt_line]
-                item_value = [c[2] for c in self.receipt_line]
-                item_subtotal = [c[4] for c in self.receipt_line]
+                    item_codes = [c[0] for c in self.receipt_line]
+                    item_desc = [c[1] for c in self.receipt_line]
+                    item_qty = [c[3] for c in self.receipt_line]
+                    item_value = [c[2] for c in self.receipt_line]
+                    item_subtotal = [c[4] for c in self.receipt_line]
 
-                refund_pdf.invoice_line(item_codes=item_codes,
-                                        item_descs=item_desc,
-                                        item_prices=item_value,
-                                        qtys=item_qty,
-                                        subtotals=item_subtotal)
-                refund_pdf.memberName(self.receipt_data['fullname'])
-                refund_pdf.refundNo(current_refund_no)
-                refund_pdf.refundDate(today)
-                refund_pdf.streetAdress(self.receipt_data['street_address'])
-                refund_pdf.cityStatePostCode(self.receipt_data['suburb'],
-                                             self.receipt_data['state'],
-                                             self.receipt_data['postcode'])
+                    refund_pdf.invoice_line(item_codes=item_codes,
+                                            item_descs=item_desc,
+                                            item_prices=item_value,
+                                            qtys=item_qty,
+                                            subtotals=item_subtotal)
+                    refund_pdf.memberName(self.receipt_data['fullname'])
+                    refund_pdf.refundNo(current_refund_no)
+                    refund_pdf.refundDate(today)
+                    refund_pdf.streetAdress(self.receipt_data['street_address'])
+                    refund_pdf.cityStatePostCode(self.receipt_data['suburb'],
+                                                 self.receipt_data['state'],
+                                                 self.receipt_data['postcode'])
 
-                error = 0
-                try:
-                    self.databaseConnection.insert(f'insert into refunds ('
-                                                   f'invoice_receipt_no, '
-                                                   f'cash_amount, '
-                                                   f'transfer_amount, '
-                                                   f'payment_datetime) values ('
-                                                   f'{self.receipt_data["receipt_no"]}, '
-                                                   f'{self.cash_refund}, '
-                                                   f'{self.transfer_refund}, '
-                                                   f'now())')
-                except Exception as e:
-                    self.databaseConnection.rollback()
-                    print('Error Logged')
-                    logger.exception(e)
-                    error = 1
-                    messagebox.showwarning('Unknown Error',
-                                           f'An unknown error occurred and has been logged. Report to developer.',
-                                           parent=self)
+                    error = 0
+                    try:
+                        self.databaseConnection.insert(f'insert into refunds ('
+                                                       f'invoice_receipt_no, '
+                                                       f'cash_amount, '
+                                                       f'transfer_amount, '
+                                                       f'payment_datetime) values ('
+                                                       f'{self.receipt_data["receipt_no"]}, '
+                                                       f'{self.cash_refund}, '
+                                                       f'{self.transfer_refund}, '
+                                                       f'now())')
+                    except Exception as e:
+                        self.databaseConnection.rollback()
+                        print('Error Logged')
+                        logger.exception(e)
+                        error = 1
+                        messagebox.showwarning('Unknown Error',
+                                               f'An unknown error occurred and has been logged. Report to developer.',
+                                               parent=self)
 
-                if error == 0:
-                    self.databaseConnection.commit()
-                    refund_pdf.save(f'./config/refund_pdfs/')
-                    self.destroy()
-                    self.history_window.destroy()
-                    self.main_menu.update_tables()
-                    messagebox.showinfo('Refund Complete', 'Refund submitted successfully.', parent=self.main_menu)
+                    if error == 0:
+                        self.databaseConnection.commit()
+                        refund_pdf.save(f'./config/refund_pdfs/')
+                        self.destroy()
+                        self.history_window.destroy()
+                        self.main_menu.update_tables()
+                        messagebox.showinfo('Refund Complete', 'Refund submitted successfully.', parent=self.main_menu)
 
+            else:
+                messagebox.showwarning('Refund Type', 'Please select a refund type.', parent=self)
         else:
-            messagebox.showwarning('Refund Type', 'Please select a refund type.', parent=self)
+            not_connected_message(self)
 
 
 class Receipt_window(tk.Tk):
@@ -2634,8 +2711,11 @@ class ExpenseWindow(tk.Tk):
                       '+'
                       + str(round((-b * y + y) / 2)))
 
-        self.expenses = self.databaseConnection.query(
-            "select expense_description, expense_id from expense where expense_id != 1;")
+        if self.databaseConnection != None:
+            self.expenses = self.databaseConnection.query(
+                "select expense_description, expense_id from expense where expense_id != 1;")
+        else:
+            self.expenses = []
 
         self.expense_var = tk.StringVar(self)
         self.expense_var.set('Select Category')
@@ -2700,100 +2780,65 @@ class ExpenseWindow(tk.Tk):
                 self.new_cat_exists = 0  # set to doesnt exist
 
     def submit(self):
-        # self.databaseConnection.reconnect()
-        date = self.date_calendar.get()
+        if self.databaseConnection != None:
+            # self.databaseConnection.reconnect()
+            date = self.date_calendar.get()
 
-        current_expense_no = self.databaseConnection.query('select max(expense_receipt_no)+1 from expense_receipt;')
-        current_expense_no = current_expense_no[0][0]
-        notes = self.get_text()
-        self.cash = self.expense_cash_var.get()
-        self.transfer = self.expense_transfer_var.get()
-        error = 0
-        new_cat = 0
-        if (self.cash == '' or self.cash == 0) and (self.transfer == '' or self.transfer == 0):
-            messagebox.showerror('Missing Values', 'Cash and transfer values cannot be both zero', parent=self)
-        else:
-            if len(self.cash) == 0:
-                self.cash = 0
-            elif match(r'^-?\d+\.?(\d+)?$', self.cash) is None:
-                messagebox.showerror('Value Error', 'Cash value must be numeric', parent=self)
-                error = 1
+            current_expense_no = self.databaseConnection.query('select max(expense_receipt_no)+1 from expense_receipt;')
+            current_expense_no = current_expense_no[0][0]
+            notes = self.get_text()
+            self.cash = self.expense_cash_var.get()
+            self.transfer = self.expense_transfer_var.get()
+            error = 0
+            new_cat = 0
+            if (self.cash == '' or self.cash == 0) and (self.transfer == '' or self.transfer == 0):
+                messagebox.showerror('Missing Values', 'Cash and transfer values cannot be both zero', parent=self)
             else:
-                self.cash = float(self.cash)
-            if error == 0 and self.cash < 0:
-                messagebox.showerror('Value Error', 'Cash value must be greater than zero', parent=self)
-            elif error == 0 and self.cash >= 0:
-                self.cash = -self.cash
-                if len(self.transfer) == 0:
-                    self.transfer = 0
-                elif match(r'^-?\d+\.?(\d+)?$', self.transfer) is None:
-                    messagebox.showerror('Value Error', 'Transfer value must be numeric', parent=self)
+                if len(self.cash) == 0:
+                    self.cash = 0
+                elif match(r'^-?\d+\.?(\d+)?$', self.cash) is None:
+                    messagebox.showerror('Value Error', 'Cash value must be numeric', parent=self)
                     error = 1
                 else:
-                    self.transfer = float(self.transfer)
-
-                if error == 0 and self.transfer < 0:
-                    messagebox.showerror('Value Error', 'Transfer value must be greater than zero', parent=self)
-                elif error == 0 and self.transfer >= 0:
-                    self.transfer = -self.transfer
-                    if self.expense_var.get() == 'Select Category':
-                        messagebox.showerror('Select Category', 'Please select a category in the drop down menu\n'
-                                                                'or add a new one.', parent=self)
+                    self.cash = float(self.cash)
+                if error == 0 and self.cash < 0:
+                    messagebox.showerror('Value Error', 'Cash value must be greater than zero', parent=self)
+                elif error == 0 and self.cash >= 0:
+                    self.cash = -self.cash
+                    if len(self.transfer) == 0:
+                        self.transfer = 0
+                    elif match(r'^-?\d+\.?(\d+)?$', self.transfer) is None:
+                        messagebox.showerror('Value Error', 'Transfer value must be numeric', parent=self)
                         error = 1
-                    elif self.expense_var.get() == '---- New Category ----':
-                        new_cat = 1
-                        if len(self.new_category_var.get()) == 0:
-                            error = 1
-                            messagebox.showerror('New Category', 'New Category field cannot be empty', parent=self)
-                        else:
-                            current_expense_cat_no = self.databaseConnection.query('select '
-                                                                                   'max(expense_id)+1 '
-                                                                                   'from expense;')
-                            current_expense_cat_no = current_expense_cat_no[0][0]
-                            self.databaseConnection.insert(f'insert into '
-                                                           f'expense '
-                                                           f'(expense_id, '
-                                                           f'expense_description) '
-                                                           f'values '
-                                                           f'({current_expense_cat_no}, '
-                                                           f'"{self.new_category_var.get()}");')
-                            self.databaseConnection.commit()
-                            if date == datetime.today().strftime(format="%d/%m/%Y"):
-                                self.databaseConnection.insert(f'insert into '
-                                                               f'expense_receipt '
-                                                               f'(expense_receipt_no, '
-                                                               f'expense_id, '
-                                                               f'cash_amount, '
-                                                               f'transfer_amount, '
-                                                               f'payment_datetime, '
-                                                               f'expense_notes) '
-                                                               f'values '
-                                                               f'({current_expense_no}, '
-                                                               f'{current_expense_cat_no}, '
-                                                               f'{self.cash}, '
-                                                               f'{self.transfer}, '
-                                                               f'now(), '
-                                                               f'"{notes}");')
-                            else:
-                                self.databaseConnection.insert(f'insert into '
-                                                               f'expense_receipt '
-                                                               f'(expense_receipt_no, '
-                                                               f'expense_id, '
-                                                               f'cash_amount, '
-                                                               f'transfer_amount, '
-                                                               f'payment_datetime, '
-                                                               f'expense_notes) '
-                                                               f'values '
-                                                               f'({current_expense_no}, '
-                                                               f'{current_expense_cat_no}, '
-                                                               f'{self.cash}, '
-                                                               f'{self.transfer}, '
-                                                               f'str_to_date("{date}","%d/%m/%Y"), '
-                                                               f'"{notes}");')
                     else:
-                        expense_id = self.expense_dict[self.expense_var.get()]
-                    if new_cat == 0 and error == 0:
-                        try:
+                        self.transfer = float(self.transfer)
+
+                    if error == 0 and self.transfer < 0:
+                        messagebox.showerror('Value Error', 'Transfer value must be greater than zero', parent=self)
+                    elif error == 0 and self.transfer >= 0:
+                        self.transfer = -self.transfer
+                        if self.expense_var.get() == 'Select Category':
+                            messagebox.showerror('Select Category', 'Please select a category in the drop down menu\n'
+                                                                    'or add a new one.', parent=self)
+                            error = 1
+                        elif self.expense_var.get() == '---- New Category ----':
+                            new_cat = 1
+                            if len(self.new_category_var.get()) == 0:
+                                error = 1
+                                messagebox.showerror('New Category', 'New Category field cannot be empty', parent=self)
+                            else:
+                                current_expense_cat_no = self.databaseConnection.query('select '
+                                                                                       'max(expense_id)+1 '
+                                                                                       'from expense;')
+                                current_expense_cat_no = current_expense_cat_no[0][0]
+                                self.databaseConnection.insert(f'insert into '
+                                                               f'expense '
+                                                               f'(expense_id, '
+                                                               f'expense_description) '
+                                                               f'values '
+                                                               f'({current_expense_cat_no}, '
+                                                               f'"{self.new_category_var.get()}");')
+                                self.databaseConnection.commit()
                                 if date == datetime.today().strftime(format="%d/%m/%Y"):
                                     self.databaseConnection.insert(f'insert into '
                                                                    f'expense_receipt '
@@ -2805,7 +2850,7 @@ class ExpenseWindow(tk.Tk):
                                                                    f'expense_notes) '
                                                                    f'values '
                                                                    f'({current_expense_no}, '
-                                                                   f'{expense_id}, '
+                                                                   f'{current_expense_cat_no}, '
                                                                    f'{self.cash}, '
                                                                    f'{self.transfer}, '
                                                                    f'now(), '
@@ -2821,22 +2866,60 @@ class ExpenseWindow(tk.Tk):
                                                                    f'expense_notes) '
                                                                    f'values '
                                                                    f'({current_expense_no}, '
-                                                                   f'{expense_id}, '
+                                                                   f'{current_expense_cat_no}, '
                                                                    f'{self.cash}, '
                                                                    f'{self.transfer}, '
                                                                    f'str_to_date("{date}","%d/%m/%Y"), '
                                                                    f'"{notes}");')
-                        except Exception as e:
-                            print('Error Logged')
-                            logger.exception(e)
-                            messagebox.showwarning('Unknown Error',
-                                                   f'An unknown error occurred and has been logged. Report to developer.')
                         else:
-                            self.databaseConnection.commit()
-                            self.main_menu.update_tables()
-                            self.destroy()
-                            messagebox.showinfo('Expense Recorded', 'New expense recorded successfully',
-                                                parent=self.main_menu)
+                            expense_id = self.expense_dict[self.expense_var.get()]
+                        if new_cat == 0 and error == 0:
+                            try:
+                                    if date == datetime.today().strftime(format="%d/%m/%Y"):
+                                        self.databaseConnection.insert(f'insert into '
+                                                                       f'expense_receipt '
+                                                                       f'(expense_receipt_no, '
+                                                                       f'expense_id, '
+                                                                       f'cash_amount, '
+                                                                       f'transfer_amount, '
+                                                                       f'payment_datetime, '
+                                                                       f'expense_notes) '
+                                                                       f'values '
+                                                                       f'({current_expense_no}, '
+                                                                       f'{expense_id}, '
+                                                                       f'{self.cash}, '
+                                                                       f'{self.transfer}, '
+                                                                       f'now(), '
+                                                                       f'"{notes}");')
+                                    else:
+                                        self.databaseConnection.insert(f'insert into '
+                                                                       f'expense_receipt '
+                                                                       f'(expense_receipt_no, '
+                                                                       f'expense_id, '
+                                                                       f'cash_amount, '
+                                                                       f'transfer_amount, '
+                                                                       f'payment_datetime, '
+                                                                       f'expense_notes) '
+                                                                       f'values '
+                                                                       f'({current_expense_no}, '
+                                                                       f'{expense_id}, '
+                                                                       f'{self.cash}, '
+                                                                       f'{self.transfer}, '
+                                                                       f'str_to_date("{date}","%d/%m/%Y"), '
+                                                                       f'"{notes}");')
+                            except Exception as e:
+                                print('Error Logged')
+                                logger.exception(e)
+                                messagebox.showwarning('Unknown Error',
+                                                       f'An unknown error occurred and has been logged. Report to developer.')
+                            else:
+                                self.databaseConnection.commit()
+                                self.main_menu.update_tables()
+                                self.destroy()
+                                messagebox.showinfo('Expense Recorded', 'New expense recorded successfully',
+                                                    parent=self.main_menu)
+        else:
+            not_connected_message(self)
 
     def get_text(self):
         text = self.note.get('1.0', 'end')
@@ -3287,379 +3370,6 @@ class EmailProgress(tk.Tk):
         return self.error
 
 
-class CommitteeReport(tk.Frame):
-    def __init__(self, parent, controller, connection):
-        tk.Frame.__init__(self, parent)
-        self.databaseConnection = connection
-        self.grid_columnconfigure(0, weight=1)
-        self.grid_columnconfigure(1, weight=1)
-        self.grid_columnconfigure(2, weight=1)
-        self.grid_columnconfigure(3, weight=1)
-        self.grid_columnconfigure(4, weight=1)
-        self.grid_columnconfigure(5, weight=1)
-        self.grid_columnconfigure(6, weight=1)
-        self.grid_columnconfigure(7, weight=1)
-        self.grid_columnconfigure(8, weight=1)
-        self.grid_columnconfigure(9, weight=1)
-        self.grid_rowconfigure(0, weight=1)
-        self.grid_rowconfigure(1, weight=1)
-        self.grid_rowconfigure(2, weight=1)
-        self.grid_rowconfigure(3, weight=1)
-        self.grid_rowconfigure(4, weight=1)
-        self.grid_rowconfigure(5, weight=1)
-        self.grid_rowconfigure(6, weight=1)
-        self.grid_rowconfigure(7, weight=1)
-        self.grid_rowconfigure(8, weight=1)
-        self.grid_rowconfigure(9, weight=1)
-        self.grid_rowconfigure(10, weight=1)
-        self.grid_rowconfigure(11, weight=1)
-
-        self.databaseConnection = connection
-        button_font = font.Font(family='Courier', size=15, weight='bold')
-        self.balances = self.databaseConnection.query('select @cashSum, @bankSum')
-
-        current_month = datetime.today().month
-        if current_month == 1:
-            self.current_month = 'January'
-        elif current_month == 2:
-            self.current_month = 'February'
-        elif current_month == 3:
-            self.current_month = 'March'
-        elif current_month == 4:
-            self.current_month = 'April'
-        elif current_month == 5:
-            self.current_month = 'May'
-        elif current_month == 6:
-            self.current_month = 'June'
-        elif current_month == 7:
-            self.current_month = 'July'
-        elif current_month == 8:
-            self.current_month = 'August'
-        elif current_month == 9:
-            self.current_month = 'September'
-        elif current_month == 10:
-            self.current_month = 'October'
-        elif current_month == 11:
-            self.current_month = 'November'
-        elif current_month == 12:
-            self.current_month = 'December'
-
-        balances_label = tk.Label(self, text='Reports', font='courier 40 bold')
-        balances_label.grid(row=0, column=0,  columnspan=9, sticky='n')
-
-        self.cash_balance_label = tk.Label(self,
-                                           text=f'Cash Balance: ${self.balances[0][0]}\n'
-                                                f'Bank Balance: ${self.balances[0][1]}',
-                                           font='courier 20 bold')
-        self.cash_balance_label.grid(row=3, column=1, columnspan=3, sticky='n')
-
-        self.month_in = self.databaseConnection.query('select '
-                                                      'sum(cash_amount)+sum(transfer_amount) '
-                                                      'from '
-                                                      'payment_history '
-                                                      'where '
-                                                      '(payment_datetime '
-                                                      'between date_format(now() , "%Y-%m-01") and NOW()) '
-                                                      'and '
-                                                      '(cash_amount > 0 or transfer_amount > 0)\n'
-                                                      'order by payment_datetime desc;')
-        self.month_out = self.databaseConnection.query('select '
-                                                       'sum(cash_amount)+sum(transfer_amount) '
-                                                       'from '
-                                                       'payment_history '
-                                                       'where '
-                                                       '(payment_datetime '
-                                                       'between date_format(now() , "%Y-%m-01") and NOW())'
-                                                       ' and '
-                                                       '(cash_amount < 0 or transfer_amount < 0)\n'
-                                                       'order by payment_datetime desc;')
-
-        current_year = datetime.today().year
-        if datetime.today() > datetime(current_year, 7, 1):
-            financial_year_start_date = datetime(current_year, 7, 1).strftime('%Y-%m-%d')
-        else:
-            financial_year_start_date = datetime(current_year - 1, 7, 1).strftime('%Y-%m-%d')
-        self.year_in = self.databaseConnection.query('select '
-                                                     'sum(cash_amount)+sum(transfer_amount) '
-                                                     'from '
-                                                     '(\n'
-                                                     '(select invoice_no as n, '
-                                                     'payment_datetime, '
-                                                     'cash_amount, '
-                                                     'transfer_amount '
-                                                     'from invoice_receipt)\n'
-                                                     'union all'
-                                                     '\n'
-                                                     '(select expense_receipt_no as n, '
-                                                     'payment_datetime, '
-                                                     'cash_amount, '
-                                                     'transfer_amount '
-                                                     'from expense_receipt)'
-                                                     '\n'
-                                                     'union all'
-                                                     '\n'
-                                                     '(select income_receipt_no as n, '
-                                                     'payment_datetime, '
-                                                     'cash_amount, '
-                                                     'transfer_amount '
-                                                     'from income_receipt))'
-                                                     ' as hist\n'
-                                                     'where '
-                                                     '(payment_datetime '
-                                                     f'between cast("{financial_year_start_date}" as DATETIME) '
-                                                     'and NOW()) '
-                                                     'and '
-                                                     '(cash_amount > 0 or transfer_amount > 0)\n'
-                                                     'order by payment_datetime desc;')
-        self.year_out = self.databaseConnection.query('select '
-                                                      'sum(cash_amount)+sum(transfer_amount) '
-                                                      'from '
-                                                      '(\n'
-                                                      '(select invoice_no as n, '
-                                                      'payment_datetime, '
-                                                      'cash_amount, '
-                                                      'transfer_amount '
-                                                      'from invoice_receipt)'
-                                                      '\n'
-                                                      'union all'
-                                                      '\n'
-                                                      '(select expense_receipt_no as n, '
-                                                      'payment_datetime, '
-                                                      'cash_amount, '
-                                                      'transfer_amount '
-                                                      'from expense_receipt)'
-                                                      '\n'
-                                                      'union all'
-                                                      '\n'
-                                                      '(select income_receipt_no as n, '
-                                                      'payment_datetime, '
-                                                      'cash_amount, '
-                                                      'transfer_amount '
-                                                      'from income_receipt)) '
-                                                      'as hist\n'
-                                                      'where '
-                                                      '(payment_datetime '
-                                                      f'between cast("{financial_year_start_date}" as DATETIME) '
-                                                      'and NOW())'
-                                                      ' and '
-                                                      '(cash_amount < 0 or transfer_amount < 0)\n'
-                                                      'order by payment_datetime desc;')
-
-        self.total_in = self.databaseConnection.query('select '
-                                                     'sum(cash_amount)+sum(transfer_amount) '
-                                                     'from '
-                                                     '(\n'
-                                                     '(select invoice_no as n, '
-                                                     'payment_datetime, '
-                                                     'cash_amount, '
-                                                     'transfer_amount '
-                                                     'from invoice_receipt)\n'
-                                                     'union all'
-                                                     '\n'
-                                                     '(select expense_receipt_no as n, '
-                                                     'payment_datetime, '
-                                                     'cash_amount, '
-                                                     'transfer_amount '
-                                                     'from expense_receipt)'
-                                                     '\n'
-                                                     'union all'
-                                                     '\n'
-                                                     '(select income_receipt_no as n, '
-                                                     'payment_datetime, '
-                                                     'cash_amount, '
-                                                     'transfer_amount '
-                                                     'from income_receipt))'
-                                                     ' as hist\n'
-                                                     'where '
-                                                     'cash_amount > 0 or transfer_amount > 0\n'
-                                                     'order by payment_datetime desc;')
-        self.total_out = self.databaseConnection.query('select '
-                                                      'sum(cash_amount)+sum(transfer_amount) '
-                                                      'from '
-                                                      '(\n'
-                                                      '(select invoice_no as n, '
-                                                      'payment_datetime, '
-                                                      'cash_amount, '
-                                                      'transfer_amount '
-                                                      'from invoice_receipt)'
-                                                      '\n'
-                                                      'union all'
-                                                      '\n'
-                                                      '(select expense_receipt_no as n, '
-                                                      'payment_datetime, '
-                                                      'cash_amount, '
-                                                      'transfer_amount '
-                                                      'from expense_receipt)'
-                                                      '\n'
-                                                      'union all'
-                                                      '\n'
-                                                      '(select income_receipt_no as n, '
-                                                      'payment_datetime, '
-                                                      'cash_amount, '
-                                                      'transfer_amount '
-                                                      'from income_receipt)) '
-                                                      'as hist\n'
-                                                      'where '
-                                                      'cash_amount < 0 or transfer_amount < 0\n'
-                                                      'order by payment_datetime desc;')
-
-        self.money_in_out_label = tk.Label(self, text=f'{self.current_month} Money In: ${self.month_in}\n{self.current_month} Money Out: ${self.month_out}',
-                                               font='courier 20 bold')
-        self.money_in_out_label.grid(row=3, column=6, columnspan=3, sticky='n')
-
-        self.print_report_button = tk.Button(self, text='Report', command=lambda: ReportPeriod(self.databaseConnection, self))
-        self.print_report_button['font'] = button_font
-        self.print_report_button.grid(row=11, column=6)
-
-        main_menu_button = tk.Button(self, text='Main Menu', command=lambda: controller.show_frame(MainMenu))
-        main_menu_button['font'] = button_font
-        main_menu_button.grid(row=11, column=3)
-
-    def update_balance(self):
-        self.balances = self.databaseConnection.query('select @cashSum, @bankSum')
-        self.month_in = self.databaseConnection.query('select '
-                                                       'sum(cash_amount)+sum(transfer_amount) '
-                                                       'from '
-                                                       '(\n'
-                                                       '(select invoice_no as n, '
-                                                       'payment_datetime, '
-                                                       'cash_amount, '
-                                                       'transfer_amount '
-                                                       'from invoice_receipt)'
-                                                       '\n'
-                                                       'union all'
-                                                       '\n'
-                                                       '(select expense_receipt_no as n, '
-                                                       'payment_datetime, '
-                                                       'cash_amount, '
-                                                       'transfer_amount '
-                                                       'from expense_receipt)'
-                                                       '\n'
-                                                       'union all'
-                                                       '\n'
-                                                       '(select income_receipt_no as n, '
-                                                       'payment_datetime, '
-                                                       'cash_amount, '
-                                                       'transfer_amount '
-                                                       'from income_receipt)) '
-                                                       'as hist\n'
-                                                       'where '
-                                                       '(payment_datetime '
-                                                       'between date_format(now() , "%Y-%m-01") and NOW())'
-                                                       ' and '
-                                                       '(cash_amount > 0 or transfer_amount > 0)\n'
-                                                       'order by payment_datetime desc;')
-        self.month_out = self.databaseConnection.query('select '
-                                                       'sum(cash_amount)+sum(transfer_amount) '
-                                                       'from '
-                                                       '(\n'
-                                                       '(select invoice_no as n, '
-                                                       'payment_datetime, '
-                                                       'cash_amount, '
-                                                       'transfer_amount '
-                                                       'from invoice_receipt)'
-                                                       '\n'
-                                                       'union all'
-                                                       '\n'
-                                                       '(select expense_receipt_no as n, '
-                                                       'payment_datetime, '
-                                                       'cash_amount, '
-                                                       'transfer_amount '
-                                                       'from expense_receipt)'
-                                                       '\n'
-                                                       'union all'
-                                                       '\n'
-                                                       '(select income_receipt_no as n, '
-                                                       'payment_datetime, '
-                                                       'cash_amount, '
-                                                       'transfer_amount '
-                                                       'from income_receipt)) '
-                                                       'as hist\n'
-                                                       'where '
-                                                       '(payment_datetime '
-                                                       'between date_format(now() , "%Y-%m-01") and NOW())'
-                                                       ' and '
-                                                       '(cash_amount < 0 or transfer_amount < 0)\n'
-                                                       'order by payment_datetime desc;')
-        self.month_in = self.month_in[0][0]
-        self.month_out = self.month_out[0][0]
-        if self.balances[0][0] is not None:
-            self.cash_balance_label.configure(text=f'Cash Balance: ${self.balances[0][0]}\n'
-                                                   f'Bank Balance: ${self.balances[0][1]}')
-        if self.month_in is None:
-            self.month_in = 0
-        if self.month_out is None:
-            self.month_out = 0
-        self.money_in_out_label.configure(text=f'{self.current_month} Money In: ${self.month_in}\n{self.current_month} Money Out: ${self.month_out}',
-                                                  font='courier 20 bold')
-
-        self.databaseConnection.insert('set @cashSum := 0;')
-        self.databaseConnection.insert('set @bankSum := 0;')
-        self.databaseConnection.insert('drop temporary table if exists last_payment_of_month;')
-        self.databaseConnection.insert(
-            'create temporary table last_payment_of_month '
-            'select distinct(max(payment_datetime)) '
-            'as '
-            'payment_datetime '
-            'from '
-            '((select payment_datetime from invoice_receipt) '
-            'union all '
-            '(select payment_datetime from expense_receipt))'
-            ' as hista '
-            'group by DATE_FORMAT(payment_datetime, "%Y-%m");')
-
-        self.end_of_month_balance = self.databaseConnection.query(
-            'select distinct(DATE_FORMAT(payment_datetime, "%Y-%m")), '
-            'cash_balance + bank_balance '
-            'from '
-            '(select payment_datetime, cash_amount, transfer_amount, (@cashSum := @cashSum + cash_amount)'
-            ' as cash_balance, '
-            '(@bankSum := @bankSum + transfer_amount) as bank_balance '
-            'from '
-            '((select invoice_no as n, payment_datetime, cash_amount, transfer_amount from invoice_receipt) '
-            'union all	'
-            '(select expense_receipt_no as n, payment_datetime, cash_amount, transfer_amount from expense_receipt) '
-            'union all '
-            '(select income_receipt_no as n, payment_datetime, cash_amount, transfer_amount from income_receipt) ) '
-            'as hist '
-            'order by payment_datetime ) '
-            'as i  '
-            'where payment_datetime in (select distinct(payment_datetime) from last_payment_of_month) '
-            'and '
-            'payment_datetime between now() - INTERVAL 6 MONTH and NOW() '
-            'order by payment_datetime desc;')
-        months = [c[0] for c in self.end_of_month_balance]
-        if len(months) < 6:
-            last_month = datetime.strptime(months[-1], '%Y-%m')
-            zero_months = 6 - len(months)
-            for i in range(1, zero_months+1):
-                new_last = last_month - relativedelta(months=i)
-                new_last = new_last.strftime("%Y-%m")
-                months.append(new_last)
-        months.reverse()
-        balances = [c[1] for c in self.end_of_month_balance]
-        if len(balances) < 6:
-            zero_months = 6 - len(balances)
-            for i in range(zero_months):
-                balances.append(0)
-        balances.reverse()
-        f = Figure(figsize=(13, 4))
-        f.set_facecolor((0.94, 0.94, 0.93))
-        a = f.add_subplot(111)
-        a.bar(months, balances)
-        a.set_ylabel('Dollars ($)')
-        a.tick_params(axis='x', labelrotation=30, labelsize=7)
-        a.tick_params(axis='y', labelsize=7)
-        a.set_facecolor((0.94, 0.94, 0.93))
-        canvas = FigureCanvasTkAgg(f, self)
-        canvas.get_tk_widget().grid(row=6, column=1, rowspan=4, columnspan=8, sticky='n')
-
-        plt.figure(dpi=200)
-        plt.bar(months, balances, color='grey')
-        plt.xticks(rotation=30)
-        plt.savefig('./config/bar_closing')
-
-
 class CashTransfers(tk.Tk):
     def __init__(self, connection, main_menu, *args, **kwargs):
         self.main_menu = main_menu
@@ -3929,33 +3639,30 @@ class ReportPeriod(tk.Tk):
         messagebox.showinfo('Committee Report', 'Committee report was successfully created', parent=self.main_menu)
 
 
-try:
-    setting = open('./config/settings.txt', 'r')
-except FileNotFoundError:
-    messagebox.showerror('Error', 'Settings file not found')
-else:
-    logger = logging.getLogger(__name__)
-    logging.basicConfig(filename='./config/log_file.txt',
-                        format='-' * 60 + '\n%(asctime)s - %(name)s - %(levelname)s - %(message)s')
+logger = logging.getLogger(__name__)
+logging.basicConfig(filename='./config/log_file.txt',
+                    format='-' * 60 + '\n%(asctime)s - %(name)s - %(levelname)s - %(message)s')
+email_address, email_host, email_port, email_password, database_user, database_password, host, database_name = parse_settings()
 
-    settings = setting.read()
-    settings = settings.splitlines()
-    settings = [i.split(':') for i in settings]
-    settings = dict(settings)
-    email_address = settings['email']
-    email_host = settings['email_host']
-    email_port = settings['smtp_port']
-    email_password = settings['email_password']
-    database_user = settings['db_user']
-    database_password = settings['db_password']
-    host = settings['host']
-    database_name = settings['db']
-    print('Connecting to database....')
-    setting.close()
-    # #  backup database on startup
-    # args = f'mysqldump -u{database_user} -p{database_password} -h{host} --port=3306 --result-file ./db_backup.sql --databases {database_name}'
-    # p = Popen(args, shell=False)  # run back up command in silent command window
-    databaseConnection = myDb(database_user, database_password, host, database_name)  # initialise db connection
-    app = App(databaseConnection, email_address, email_password, email_host, email_port)  # initialise app
-    print('App loaded')
-    app.mainloop()
+import sys
+
+if database_name != '' and database_password != '' and database_user != '' and host != '':
+    try:
+        print(f'Connecting to {database_user}@{host}..................', end='')
+        databaseConnection = connect_database(database_user, database_password, host, database_name)
+    except db_errors().ProgrammingError:
+        print("Authentication Error. Check credentials are correct")
+        exit()
+    except db_errors().InterfaceError:
+        print(f"Could not connect to {host}. Check host address is correct")
+        exit()
+else:
+    databaseConnection = None
+
+app = App(email_address, email_password, email_host, email_port,connection=databaseConnection)  # initialise app
+print("*"*30)
+print('App loaded')
+app.mainloop()
+
+# db_errors().ProgrammingError ##wrong password, wrong_user, wrong database
+# db_errors().InterfaceError  ## wrong host

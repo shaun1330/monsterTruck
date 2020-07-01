@@ -43,7 +43,8 @@ class MydatabaseConnection:
     def in_transaction(self):
         return self.db.in_transaction()
 
-
-
+def errors():
+    errors = mysql.connector.errors
+    return errors
 
 
