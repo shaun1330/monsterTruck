@@ -690,7 +690,7 @@ class MainMenu(tk.Frame):
         f = Figure(figsize=(6, 2))
         f.suptitle('Monthly Closing Balances')
         f.set_facecolor((0.94, 0.94, 0.93))
-        a = f.add_subplot(111, ylim=(0, max(balances)+100))
+        a = f.add_subplot(111, ylim=(0, float(max(balances))+100))
         a.bar(months, balances)
 
         a.set_ylabel('Dollars ($)')
