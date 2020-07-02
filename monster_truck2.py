@@ -22,10 +22,10 @@ from matplotlib.figure import Figure
 from openpyxl import Workbook
 
 '''
-v2.1.0.beta
+v2.2.0.beta
 '''
 
-version = 'v2.1.0.beta'
+version = 'v2.2.0.beta'
 
 def check_if_current():
     url = 'http://shaunrsimons.com/updates/current_version.txt'
