@@ -1,4 +1,5 @@
 import tkinter as tk
+import requests
 import logging
 from tkinter.ttk import Treeview, Progressbar, Style
 from invoice_generator_class import InvoiceGenerator
@@ -24,6 +25,18 @@ from openpyxl import Workbook
 v2.1.0.beta
 '''
 
+version = 'v2.1.0.beta'
+
+def check_if_current():
+    url = 'http://shaunrsimons.com/updates/current_version.txt'
+    r = requests.get(url=url).text.strip('\n')
+    if r != version:
+        answer = messagebox.askyesno('Update Available',
+                                     f'A software update is available. Would like to update to {r}?')
+        if answer:
+            print('updating')
+    else:
+        print(f'{version} is up to date.')
 
 def log_unhandled_exception(type, value, traceback):
     logger.exception('Unhandled Exception', exc_info=(type, value, traceback))
@@ -159,6 +172,7 @@ class App(tk.Tk):
         if connection == None:
             messagebox.showwarning('Database connection', 'A connection could not be made with the database. '
                                                           'Check that credentials are correct.')
+        check_if_current()
 
     def show_frame(self, page):
         frame = self.frames[page]
