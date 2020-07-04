@@ -25,7 +25,7 @@ from openpyxl import Workbook
 v2.3.0.beta
 '''
 
-version = 'v2.3.0.beta'
+version = 'v2.3.1.beta'
 
 
 def check_if_current():
@@ -3691,19 +3691,9 @@ if database_name != '' and database_password != '' and database_user != '' and h
     try:
         print(f'Connecting to {database_user}@{host}..................', end='')
         databaseConnection = connect_database(database_user, database_password, host, database_name)
-    except db_errors().ProgrammingError:
-        print("Authentication Error. Check credentials are correct")
-        messagebox.showerror('Connection Error', 'Database user or password appear to be incorrect.')
-        exit()
-    except db_errors().InterfaceError:
-        print(f"Could not connect to {host}. Check host address is correct")
-        messagebox.showerror('Connection Error', 'Could not connect to database. '
-                                                 'Database may be down for maintenance or host address is incorrect')
-        exit()
     except Exception:
         print('Unknown connection Issue.')
-        messagebox.showerror('Connection Error', 'An unknown error occurred when attempting to connect to database. '
-                                                 'Report to developer')
+        databaseConnection = None
 else:
     databaseConnection = None
 
