@@ -22,21 +22,21 @@ from matplotlib.figure import Figure
 from openpyxl import Workbook
 
 '''
-v2.2.0.beta
+v2.3.0.beta
 '''
 
-version = 'v2.2.0.beta'
+version = 'v2.3.0.beta'
+
 
 def check_if_current():
     url = 'http://shaunrsimons.com/updates/current_version.txt'
     r = requests.get(url=url).text.strip('\n')
     if r != version:
-        answer = messagebox.askyesno('Update Available',
-                                     f'A software update is available. Would like to update to {r}?')
-        if answer:
-            print('updating')
+        messagebox.showinfo('Update Available',
+                                     f'Monster Truck {r} is available. To update, close out of Monster Truck and run updater.exe')
     else:
         print(f'{version} is up to date.')
+
 
 def log_unhandled_exception(type, value, traceback):
     logger.exception('Unhandled Exception', exc_info=(type, value, traceback))
@@ -74,6 +74,7 @@ def log_unhandled_exception(type, value, traceback):
     button = tk.Button(top, text="Dismiss", command=top.destroy)
     button.pack()
 
+
 def invoice_table(window, row=0, column=0, columnspan=1, rowspan=1, pady=0, padx=0):
     invoice_font = font.Font(family='Courier', size=10)
     window.invoice_table = Treeview(window, height=10)
@@ -92,6 +93,7 @@ def invoice_table(window, row=0, column=0, columnspan=1, rowspan=1, pady=0, padx
 
     window.invoice_table.grid(row=row, column=column, rowspan=rowspan, columnspan=columnspan, padx=padx, pady=pady)
 
+
 def parse_settings():
     setting = open('./config/settings.txt', 'r')
     settings = setting.read()
@@ -109,13 +111,16 @@ def parse_settings():
     setting.close()
     return email_address, email_host, email_port, email_password, database_user, database_password, host, database_name
 
+
 def connect_database(database_user, database_password, host, database_name):
     databaseConnection = myDb(database_user, database_password, host, database_name)  # initialise db connection
     return databaseConnection
 
+
 def not_connected_message(window):
     messagebox.showerror('Database Connection', 'Not connected to database. Add databases credentials to settings.txt',
                          parent=window)
+
 
 def donothing():
     pass
@@ -144,7 +149,7 @@ class App(tk.Tk):
 
         self.screen_height = self.winfo_screenheight()
         self.screen_width = self.winfo_screenwidth()
-        self.title("Monster Truck v2.1.0.beta")
+        self.title(f"Monster Truck {version}")
         self.geometry(str(self.winfo_screenwidth())+'x'+str(self.winfo_screenheight()))
         self.state('zoomed')
         container = tk.Frame(self)
