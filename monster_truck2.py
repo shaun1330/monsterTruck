@@ -14,35 +14,33 @@ from tkcalendar import DateEntry
 from os import startfile
 from re import match
 from database_connection import MydatabaseConnection as myDb
-from database_connection import errors as db_errors
 from email_test import Emailer
 import matplotlib.pyplot as plt
 from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
 from matplotlib.figure import Figure
 from openpyxl import Workbook
 
-'''
-v2.3.0.beta
-'''
 
-version = 'v2.3.1.beta'
+version = 'v2.4.0.beta'
 
 
 def check_if_current():
     url = 'http://shaunrsimons.com/updates/current_version.txt'
-    r = requests.get(url=url).text.strip('\n')
-    if r != version:
-        messagebox.showinfo('Update Available',
-                                     f'Monster Truck {r} is available. To update, close out of Monster Truck and run updater.exe')
+    r = requests.get(url=url)
+    text = r.text.strip('\n')
+    if r.status_code == requests.codes.ok:
+        if text != version:
+            print(f'{text} is available for download.')
+            messagebox.showinfo('Update Available',
+                                f'Monster Truck {text} is available. To update, close out of Monster Truck and run updater.exe')
+        else:
+            print(f'{version} is up to date.')
     else:
-        print(f'{version} is up to date.')
+        messagebox.showwarning('Update server offline', 'Could not connected to update server. Try again later.')
 
 
 def log_unhandled_exception(type, value, traceback):
     logger.exception('Unhandled Exception', exc_info=(type, value, traceback))
-    # messagebox.showerror("Critical Error", 'An unknown error has occurred.\nContact Developer.\n\n'
-    #                                        f'{type,value}')
-
     width, height = 100, 100
     top = tk.Toplevel()
     top.title('Critical Error')
@@ -127,13 +125,13 @@ def donothing():
 
 
 class App(tk.Tk):
-    def __init__(self,  email_address, email_password, email_host, email_port, connection,*args, **kwargs):
+    def __init__(self,  email_address, email_password, email_host, email_port, connection, connection_error, *args, **kwargs):
         tk.Tk.__init__(self, *args, **kwargs)
         print('Loading App...')
         s = Style()
         s.theme_use('clam')
         self.report_callback_exception = log_unhandled_exception
-
+        self.connection = connection
         # self.menubar = tk.Menu(self)
         # self.file_menu = tk.Menu(self.menubar, tearoff=0)
         # self.file_menu.add_command(label='Exit', command=exit)
@@ -161,7 +159,7 @@ class App(tk.Tk):
         for F in (MainMenu, Members):
             print(f'Loading {F.__name__}')
             if F == MainMenu:
-                frame = F(container, self, connection=connection, email_address=email_address,
+                frame = F(container, self, connection=self.connection, email_address=email_address,
                           email_password=email_password,
                           email_host=email_host,
                           email_port=email_port)
@@ -169,19 +167,35 @@ class App(tk.Tk):
                 self.frames[F] = frame
                 frame.grid(row=0, column=0, sticky='NSEW')
             else:
-                frame = F(container, self, connection=connection)
+                frame = F(container, self, connection=self.connection)
                 self.frames[F] = frame
                 frame.grid(row=0, column=0, sticky='NSEW')
             print(f'\t{F.__name__} Loaded')
         self.show_frame(MainMenu)
-        if connection == None:
+        if self.connection == None and connection_error == 1:
             messagebox.showwarning('Database connection', 'A connection could not be made with the database. '
                                                           'Check that credentials are correct.')
+        elif self.connection == None and connection_error == 0:
+            messagebox.showinfo('Database connection', 'A connection could not be made with the database. '
+                                                       'Database credentials are missing. Check settings.txt.')
+        elif self.connection != None:
+            self.check_database_connection()
         check_if_current()
+
 
     def show_frame(self, page):
         frame = self.frames[page]
         frame.tkraise()
+
+    def check_database_connection(self):
+        time_now = datetime.now().strftime('%H:%M:%S')
+        connected = self.connection.is_connect()
+        if connected:
+            print(time_now + ': Connected')
+            self.after(1000 * 60 * 5, self.check_database_connection)  # check every 5 minutes
+        else:
+            messagebox.showwarning('Database connection lost',
+                                   'The connection to the database has been lost. Restart Monster Truck.')
 
 
 class MainMenu(tk.Frame):
@@ -3686,7 +3700,7 @@ logging.basicConfig(filename='./config/log_file.txt',
                     format='-' * 60 + '\n%(asctime)s - %(name)s - %(levelname)s - %(message)s')
 email_address, email_host, email_port, email_password, database_user, database_password, host, database_name = parse_settings()
 
-
+db_connection_error = 0
 if database_name != '' and database_password != '' and database_user != '' and host != '':
     try:
         print(f'Connecting to {database_user}@{host}..................', end='')
@@ -3694,10 +3708,11 @@ if database_name != '' and database_password != '' and database_user != '' and h
     except Exception:
         print('Unknown connection Issue.')
         databaseConnection = None
+        db_connection_error = 1
 else:
     databaseConnection = None
 
-app = App(email_address, email_password, email_host, email_port,connection=databaseConnection)  # initialise app
+app = App(email_address, email_password, email_host, email_port, connection=databaseConnection, connection_error=db_connection_error)  # initialise app
 print("*"*30)
 print('App loaded')
 app.mainloop()

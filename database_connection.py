@@ -43,6 +43,9 @@ class MydatabaseConnection:
     def in_transaction(self):
         return self.db.in_transaction()
 
+    def is_connect(self):
+        return self.db.is_connected()
+
 def errors():
     errors = mysql.connector.errors
     return errors
