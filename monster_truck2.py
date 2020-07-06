@@ -23,6 +23,14 @@ from openpyxl import Workbook
 
 version = 'v2.4.0.beta'
 
+def activity_log(func):
+    def log_wrapper(*args, **kwargs):
+        logger.debug(f'Called function {func.__qualname__} with args [{"".join([str(arg) for arg in args])}]', )
+        print(f'Called function {func.__qualname__}')
+        f = func(*args, **kwargs)
+        return f
+    return log_wrapper
+
 
 def check_if_current():
     url = 'http://shaunrsimons.com/updates/current_version.txt'
@@ -357,6 +365,8 @@ class MainMenu(tk.Frame):
 
         self.update_balance()
 
+
+    @activity_log
     def exporter(self):
         print(f'\t\t\tExporting member data to members_list.xlsx{"."*10}', end='')
         members_info = self.connect.query('select '
@@ -534,12 +544,14 @@ class MainMenu(tk.Frame):
                             'order by payment_datetime;')
         print('Done')
 
+    @activity_log
     def on_double_click_invoice(self, a):
         if self.connect != None:
             item = self.invoices_table.selection()
             invoice_no = self.invoices_table.item(item, 'text')
             Receipt_window(invoice_no, self.connect, self, self.email_address, self.email_password, self.email_host, self.email_port)
 
+    @activity_log
     def on_double_click_history(self, a):
         if self.connect != None:
             item = self.history_table.selection()
@@ -881,6 +893,7 @@ class Members(tk.Frame):
         else:
             not_connected_message(self)
 
+    @activity_log
     def exporter(self):
         if self.databaseConnection != None:
             members_info = self.databaseConnection.query('select '
@@ -937,6 +950,7 @@ class Members(tk.Frame):
         else:
             not_connected_message(self)
 
+    @activity_log
     def on_double_click(self, a):
         item = self.table.selection()
         if len(item) != 0:
@@ -1118,6 +1132,7 @@ class EditMember(tk.Tk):
 
         self.attributes("-topmost", True)
 
+    @activity_log
     def editMemberSubmit(self):
         fname = self.fname_var.get()
         lname = self.lname_var.get()
@@ -1159,6 +1174,7 @@ class EditMember(tk.Tk):
 
 
 class InvoiceWindow(tk.Tk):
+    @activity_log 
     def __init__(self, connection, main_menu, *args, **kwargs ):
         tk.Tk.__init__(self, *args, **kwargs)
         self.main_menu = main_menu
@@ -1280,15 +1296,18 @@ class InvoiceWindow(tk.Tk):
 
         self.items_var.trace('w', self.set_price_qty)
 
+    @activity_log
     def set_price_qty(self, *args):
         item = self.items_var.get()
         if item != 'Select Invoice Item':
             self.items_price_var.set(self.items[item][1])
             self.item_qty_var.set(1)
 
+    @activity_log
     def select_item(self, a):
         self.row_values = self.invoice_table.item(self.invoice_table.selection())
 
+    @activity_log
     def add_item_command(self):
         if self.member_var.get() != 'Select Member':
             item_selection = self.items_var.get()
@@ -1310,6 +1329,7 @@ class InvoiceWindow(tk.Tk):
             self.invoice_total_var.set(price_string)
             self.attributes("-topmost", True)
 
+    @activity_log
     def remove_item_command(self):
         item_code = self.row_values['text']
         item_desc = self.row_values['values'][0]
@@ -1327,6 +1347,7 @@ class InvoiceWindow(tk.Tk):
         price_string = '$' + total
         self.invoice_total_var.set(price_string)
 
+    @activity_log
     def submit_invoice_command(self):
         if self.databaseConnection != None:
                 invoice_total = str(self.total)
@@ -3698,6 +3719,7 @@ class ReportPeriod(tk.Tk):
 logger = logging.getLogger(__name__)
 logging.basicConfig(filename='./config/log_file.txt',
                     format='-' * 60 + '\n%(asctime)s - %(name)s - %(levelname)s - %(message)s')
+logger.setLevel(logging.DEBUG)
 email_address, email_host, email_port, email_password, database_user, database_password, host, database_name = parse_settings()
 
 db_connection_error = 0
