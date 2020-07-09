@@ -32,6 +32,7 @@ def activity_log(func):
     return log_wrapper
 
 
+@activity_log
 def check_if_current():
     url = 'http://shaunrsimons.com/updates/current_version.txt'
     r = requests.get(url=url)
@@ -189,7 +190,6 @@ class App(tk.Tk):
         elif self.connection != None:
             self.check_database_connection()
         check_if_current()
-
 
     def show_frame(self, page):
         frame = self.frames[page]
@@ -364,7 +364,6 @@ class MainMenu(tk.Frame):
                 # error when file is open already
 
         self.update_balance()
-
 
     @activity_log
     def exporter(self):
@@ -851,6 +850,7 @@ class Members(tk.Frame):
 
         self.showing_active = True
 
+    @activity_log
     def toggle_active(self):
         if self.databaseConnection != None:
             if self.showing_active:
@@ -1448,6 +1448,7 @@ class InvoiceWindow(tk.Tk):
 
 
 class NewMemberPage(tk.Tk):
+    @activity_log
     def __init__(self, connection, member_page, *args, **kwargs):
         tk.Tk.__init__(self, *args, **kwargs)
         height = self.winfo_screenheight()
@@ -1559,6 +1560,7 @@ class NewMemberPage(tk.Tk):
 
         self.attributes("-topmost", True)
 
+    @activity_log
     def newMemberSubmit(self):
         if self.dbconnection != None:
             fname = self.fname_var.get()
@@ -2149,6 +2151,7 @@ class HistoryWindow(tk.Tk):
             else:
                 messagebox.showerror('Error', 'Error occurred. Report to developer.')
 
+    @activity_log
     def delete_transfer_record(self):
         delete_yesno = messagebox.askyesno('Delete Transfer', 'Are you sure you want to delete this transfer record?', parent=self)
         if delete_yesno:
@@ -2157,6 +2160,7 @@ class HistoryWindow(tk.Tk):
             self.destroy()
             messagebox.showinfo('Delete Transfer', 'Transfer record deleted successfully', parent=self.main_menu)
 
+    @activity_log
     def refund_invoice(self):
         refunded = self.databaseConnection.query(f'select invoice_receipt_no from refunds where invoice_receipt_no = {self.receipt_no}')
         if len(refunded) != 0:
@@ -2172,6 +2176,7 @@ class HistoryWindow(tk.Tk):
         else:
             RefundCashOrTransfer(self.receipt_no, self.databaseConnection, self.main_menu, self.receipt_data, self.invoice_line, self)
 
+    @activity_log
     def delete_receipt(self):
         refunded = self.databaseConnection.query(
             f'select refund_no, invoice_receipt_no from refunds where invoice_receipt_no = {self.receipt_no}')
@@ -2188,6 +2193,7 @@ class HistoryWindow(tk.Tk):
                 self.destroy()
                 messagebox.showinfo('Receipt Deleted', 'Invoice receipt record deleted.', parent=self.main_menu)
 
+    @activity_log
     def delete_income(self):
         delete_yesno = messagebox.askyesno('Delete Income Entry', 'Are you sure you want to delete this entry?', parent=self)
         if delete_yesno:
@@ -2197,6 +2203,7 @@ class HistoryWindow(tk.Tk):
             self.destroy()
             messagebox.showinfo('Entry Deleted', 'Income entry record deleted.', parent=self.main_menu)
 
+    @activity_log
     def delete_expense(self):
         delete_yesno = messagebox.askyesno('Delete Expense Entry', 'Are you sure you want to delete this entry?', parent=self)
         if delete_yesno:
@@ -2206,10 +2213,12 @@ class HistoryWindow(tk.Tk):
             self.destroy()
             messagebox.showinfo('Entry Deleted', 'Expense entry record deleted.', parent=self.main_menu)
 
+    @activity_log
     def view_receipt(self):
         self.attributes("-topmost", False)  # #
         startfile(f'.\\config\\receipt_pdfs\\R{self.receipt_no}.pdf')
 
+    @activity_log
     def send_receipt(self):
         email_yesno = messagebox.askyesno('Email Receipt',
                                           f'Would you like to send out this invoice to \n{self.receipt_data["member_email"]}?',
@@ -2237,6 +2246,7 @@ class HistoryWindow(tk.Tk):
         else:
             print('Cancelled')
 
+    @activity_log
     def send_refund(self):
         email_yesno = messagebox.askyesno('Email Refund',
                                           f'Would you like to send out this refund receipt to \n{self.receipt_data["member_email"]}?',
@@ -2268,6 +2278,7 @@ class HistoryWindow(tk.Tk):
 
 
 class RefundCashOrTransfer(tk.Tk):
+    @activity_log
     def __init__(self, receipt_no, connection, main_menu, invoice_data, invoice_line, history_window,  *args, **kwargs):
         tk.Tk.__init__(self, *args, **kwargs)
         self.attributes("-topmost", True)
@@ -2311,6 +2322,7 @@ class RefundCashOrTransfer(tk.Tk):
         self.submit_button = tk.Button(self, text='Submit', command=self.submit_refund)
         self.submit_button.grid(row=2, column=2, sticky='W')
 
+    @activity_log
     def submit_refund(self):
         if self.databaseConnection != None:
             selected_refund_type = self.refund_type_variable.get()
@@ -2521,6 +2533,7 @@ class Receipt_window(tk.Tk):
 
         self.attributes("-topmost", True)
 
+    @activity_log
     def delete_invoice(self):
         # self.databaseConnection.reconnect()
         warning = messagebox.askyesno('Delete Invoice', 'Are you sure you want to delete this invoice?', parent=self)
@@ -2532,6 +2545,7 @@ class Receipt_window(tk.Tk):
             self.main_menu.update_tables()
             self.destroy()
 
+    @activity_log
     def send_invoice(self):
         email_yesno = messagebox.askyesno('Email Invoices', f'Would you like to send out this invoice to \n{self.invoice_data[-2]}?',
                                           parent=self)
@@ -2560,6 +2574,7 @@ class Receipt_window(tk.Tk):
 
 
 class ReceiptCashOrTransfer(tk.Tk):
+    @activity_log
     def __init__(self, invoice_total, invoice_no, connection, receipt_window, main_menu, email, password, *args, **kwargs):
         tk.Tk.__init__(self, *args, **kwargs)
         self.grid_rowconfigure(0, weight=1)
@@ -2617,6 +2632,7 @@ class ReceiptCashOrTransfer(tk.Tk):
     def cancel_receipt(self):
         self.destroy()
 
+    @activity_log
     def submit_receipt(self):
         error = 0
         self.cash = self.cash_var.get()
@@ -2667,6 +2683,7 @@ class ReceiptCashOrTransfer(tk.Tk):
                                              'Receipt failed to be sent. Check email \ncredentials are correct.',
                                              parent=self.main_menu)
 
+    @activity_log
     def receipt_insert(self):
         date = self.date_calendar.get()
         data = self.databaseConnection.query(f'select '
@@ -2738,6 +2755,7 @@ class ReceiptCashOrTransfer(tk.Tk):
 
 
 class ExpenseWindow(tk.Tk):
+    @activity_log
     def __init__(self, connection, main_menu, *args, **kwargs):
         self.main_menu = main_menu
         tk.Tk.__init__(self, *args, **kwargs)
@@ -2822,6 +2840,7 @@ class ExpenseWindow(tk.Tk):
         self.new_cat_exists = 0
         self.new_category_var = tk.StringVar(self)
 
+    @activity_log
     def create_new_category(self, *args):
         expense = self.expense_var.get()
         if expense == '---- New Category ----':
@@ -2838,6 +2857,7 @@ class ExpenseWindow(tk.Tk):
                 self.new_category_var.set('')
                 self.new_cat_exists = 0  # set to doesnt exist
 
+    @activity_log
     def submit(self):
         if self.databaseConnection != None:
             # self.databaseConnection.reconnect()
@@ -2986,6 +3006,7 @@ class ExpenseWindow(tk.Tk):
 
 
 class IncomeWindow(tk.Tk):
+    @activity_log
     def __init__(self, connection, main_menu, *args, **kwargs):
         self.main_menu = main_menu
         self.report_callback_exception = log_unhandled_exception
@@ -3068,6 +3089,7 @@ class IncomeWindow(tk.Tk):
         self.new_cat_exists = 0
         self.new_category_var = tk.StringVar(self)
 
+    @activity_log
     def create_new_category(self, *args):
         income = self.income_var.get()
         if income == '---- New Category ----':
@@ -3085,6 +3107,7 @@ class IncomeWindow(tk.Tk):
                 self.new_category_var.set('')
                 self.new_cat_exists = 0  # set to doesnt exist
 
+    @activity_log
     def submit(self):
         if self.databaseConnection != None:
             # self.databaseConnection.reconnect()
@@ -3247,6 +3270,7 @@ class IncomeWindow(tk.Tk):
 
 
 class AutoInvoicing(tk.Tk):
+    @activity_log
     def __init__(self, connection, main_menu, email_address, email_password, email_host, email_port, *args, **kwargs):
         tk.Tk.__init__(self, *args, **kwargs)
         self.main_menu = main_menu
@@ -3324,6 +3348,7 @@ class AutoInvoicing(tk.Tk):
         self.start_button = tk.Button(self, text='Start', command=self.start)
         self.start_button.grid(row=3, column=1, sticky='N', pady=(0,10))
 
+    @activity_log
     def start(self):
         if self.databaseConnection != None:
             yesno = messagebox.askyesno('Auto Invoicer', 'This program will produce invoices for all active members.'
@@ -3367,6 +3392,7 @@ class AutoInvoicing(tk.Tk):
 
 
 class EmailProgress(tk.Tk):
+    @activity_log
     def __init__(self, email_list, connection, main_menu, email_address, email_password, email_host, email_port, *args, **kwargs):
         tk.Tk.__init__(self, *args, **kwargs)
         self.databaseConnection = connection
@@ -3429,6 +3455,7 @@ class EmailProgress(tk.Tk):
         self.main_menu.update_tables()
         self.destroy()
 
+    @activity_log
     def progresser(self, current_value):
         self.progress['value'] = current_value
 
@@ -3437,6 +3464,7 @@ class EmailProgress(tk.Tk):
 
 
 class CashTransfers(tk.Tk):
+    @activity_log
     def __init__(self, connection, main_menu, *args, **kwargs):
         self.main_menu = main_menu
         self.databaseConnection = connection
@@ -3494,52 +3522,73 @@ class CashTransfers(tk.Tk):
         self.right_button = tk.Button(self, text='Deposit', command=self.right_button)
         self.right_button.grid(row=2, column=2)
 
+    @activity_log
     def left_button(self):
         if self.databaseConnection != None:
             transfer = self.transfer_entry_var.get()
-            current_transfer_no = self.databaseConnection.query('select max(transfer_no)+1 from transfer;')
-            self.databaseConnection.insert('insert into transfer '
-                                           '(transfer_no, cash_amount, transfer_amount, payment_datetime)'
-                                           'values '
-                                           f'({current_transfer_no[0][0]}, {transfer}, -{transfer}, now())')
-            self.databaseConnection.commit()
-            self.main_menu.update_tables()
-            self.balances = self.databaseConnection.query('select @cashSum, @bankSum')
-            cash = self.balances[0][0]
-            bank = self.balances[0][1]
-            self.cash_balance_label.configure(text=f'${cash}')
-            self.bank_balance_label.configure(text=f'${bank}')
-            self.transfer_entry_var.set('')
+            if transfer == 0 or transfer == '':
+                messagebox.showwarning('Error', 'Transfer value cannot be zero', parent=self)
+            else:
+                if match(r'^-?\d+\.?(\d+)?$', transfer) is None:
+                    messagebox.showwarning('Error', 'Transfer value must be numeric', parent=self)
+                else:
+                    if float(transfer) < 0:
+                        messagebox.showwarning('Error', 'Transfer value cannot be less than zero', parent=self)
+                    else:
+                        current_transfer_no = self.databaseConnection.query('select max(transfer_no)+1 from transfer;')
+                        self.databaseConnection.insert('insert into transfer '
+                                                       '(transfer_no, cash_amount, transfer_amount, payment_datetime)'
+                                                       'values '
+                                                       f'({current_transfer_no[0][0]}, {transfer}, -{transfer}, now())')
+                        self.databaseConnection.commit()
+                        self.main_menu.update_tables()
+                        self.balances = self.databaseConnection.query('select @cashSum, @bankSum')
+                        cash = self.balances[0][0]
+                        bank = self.balances[0][1]
+                        self.cash_balance_label.configure(text=f'${cash}')
+                        self.bank_balance_label.configure(text=f'${bank}')
+                        self.transfer_entry_var.set('')
         else:
             not_connected_message(self)
 
+    @activity_log
     def right_button(self):
         if self.databaseConnection != None:
             transfer = self.transfer_entry_var.get()
-            current_transfer_no = self.databaseConnection.query('select max(transfer_no)+1 from transfer;')
-            self.databaseConnection.insert('insert into transfer '
-                                           '(transfer_no, cash_amount, transfer_amount, payment_datetime)'
-                                           'values '
-                                           f'({current_transfer_no[0][0]}, -{transfer}, {transfer}, now())')
-            self.databaseConnection.commit()
-            self.main_menu.update_tables()
-            self.balances = self.databaseConnection.query('select @cashSum, @bankSum')
-            cash = self.balances[0][0]
-            bank = self.balances[0][1]
-            self.cash_balance_label.configure(text=f'${cash}')
-            self.bank_balance_label.configure(text=f'${bank}')
-            self.transfer_entry_var.set('')
+            if transfer == 0 or transfer == '':
+                messagebox.showwarning('Error', 'Transfer value cannot be zero', parent=self)
+            else:
+                if match(r'^-?\d+\.?(\d+)?$', transfer) is None:
+                    messagebox.showwarning('Error', 'Transfer value must be numeric', parent=self)
+                else:
+                    if float(transfer) < 0:
+                        messagebox.showwarning('Error', 'Transfer value cannot be less than zero', parent=self)
+                    else:
+                        current_transfer_no = self.databaseConnection.query('select max(transfer_no)+1 from transfer;')
+                        self.databaseConnection.insert('insert into transfer '
+                                                       '(transfer_no, cash_amount, transfer_amount, payment_datetime)'
+                                                       'values '
+                                                       f'({current_transfer_no[0][0]}, -{transfer}, {transfer}, now())')
+                        self.databaseConnection.commit()
+                        self.main_menu.update_tables()
+                        self.balances = self.databaseConnection.query('select @cashSum, @bankSum')
+                        cash = self.balances[0][0]
+                        bank = self.balances[0][1]
+                        self.cash_balance_label.configure(text=f'${cash}')
+                        self.bank_balance_label.configure(text=f'${bank}')
+                        self.transfer_entry_var.set('')
         else:
             not_connected_message(self)
 
 
 class ReportPeriod(tk.Tk):
+    @activity_log
     def __init__(self, connection, main_menu, *args, **kwargs):
         self.databaseConnection = connection
         self.main_menu = main_menu
         self.report_callback_exception = log_unhandled_exception
         tk.Tk.__init__(self, *args, **kwargs)
-
+        self.title('Committee Report')
         self.grid_columnconfigure(0, weight=1)
         self.grid_columnconfigure(1, weight=1)
         self.grid_rowconfigure(0, weight=1)
@@ -3580,6 +3629,7 @@ class ReportPeriod(tk.Tk):
         self.create = tk.Button(self, text='Create Report', command=self.committee_report_print)
         self.create.grid(row=3, column=1)
 
+    @activity_log
     def committee_report_print(self):
         if self.databaseConnection != None:
             report_start = self.start_calendar.get()
@@ -3719,7 +3769,7 @@ class ReportPeriod(tk.Tk):
 logger = logging.getLogger(__name__)
 logging.basicConfig(filename='./config/log_file.txt',
                     format='-' * 60 + '\n%(asctime)s - %(name)s - %(levelname)s - %(message)s')
-logger.setLevel(logging.DEBUG)
+# logger.setLevel(logging.DEBUG)
 email_address, email_host, email_port, email_password, database_user, database_password, host, database_name = parse_settings()
 
 db_connection_error = 0
