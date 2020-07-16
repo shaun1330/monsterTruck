@@ -21,6 +21,7 @@ import matplotlib.pyplot as plt
 from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
 from matplotlib.figure import Figure
 from openpyxl import Workbook
+from json import loads
 
 
 version = 'v2.4.0.beta'
@@ -33,21 +34,50 @@ def activity_log(func):
         return f
     return log_wrapper
 
-
 @activity_log
-def check_if_current():
+def check_if_current(startup=True):
     url = 'http://shaunrsimons.com/updates/current_version.txt'
     r = requests.get(url=url)
-    text = r.text.strip('\n')
+    request_string = loads(r.text)
+    new_version = request_string['version']
+    notes = request_string['notes']
     if r.status_code == requests.codes.ok:
-        if text != version:
-            print(f'{text} is available for download.')
-            messagebox.showinfo('Update Available',
-                                f'Monster Truck {text} is available. To update, close out of Monster Truck and run updater.exe')
+        if new_version != version:
+            print(f'{new_version} is available for download.')
+            top = tk.Toplevel()
+            top.title('New Version Available')
+            top.attributes('-topmost', True)
+            x = top.winfo_screenwidth()
+            y = top.winfo_screenheight()
+            a = 0.4
+            b = 0.4
+            top.geometry(str(round(x * a)) +
+                         'x'
+                         + str(round(y * b)) +
+                         '+'
+                         + str(round((-a * x + x) / 2)) +
+                         '+'
+                         + str(round((-b * y + y) / 2)))
+            update_label = tk.Label(top, text='Update Available', font=('Courier,12'))
+            update_label.pack()
+            msg = tk.Text(top, wrap=tk.WORD, height=15, yscrollcommand=set())
+            msg.insert('1.0', notes)
+            msg.insert('2.0', '\nTo update, close out of Monster Truck and run updater.exe.\n\n')
+            msg.configure(state=tk.DISABLED)
+            msg.pack(pady=(10,20))
+            button = tk.Button(top, text="Dismiss", command=top.destroy)
+            button.pack()
+
+
         else:
-            print(f'{version} is up to date.')
+            if startup:
+                print(f'{version} is up to date.')
+                pass
+            else:
+                messagebox.showinfo('Up to date', f'Monster Truck {version} is the most up to date version.')
     else:
-        messagebox.showwarning('Update server offline', 'Could not connected to update server. Try again later.')
+        messagebox.showwarning('Update server offline',
+                               'Could not connected to update server. Contact developer or try again later.')
 
 
 def input_check(cash_amount, transfer_amount):
@@ -166,13 +196,35 @@ def not_connected_message(window):
                          parent=window)
 
 
-def donothing():
-    pass
-
-
 def on_closing():
-    if messagebox.askyesno("Quit", 'Do you want to quit?'):
-        exit()
+    width, height = 100, 100
+    top = tk.Toplevel()
+    top.title('Exit')
+    top.attributes('-topmost', True)
+    top.grid_rowconfigure(0, weight=1)
+    top.grid_rowconfigure(1, weight=1)
+    top.grid_columnconfigure(0, weight=1)
+    top.grid_columnconfigure(1, weight=1)
+    x = top.winfo_screenwidth()
+    y = top.winfo_screenheight()
+    a = 0.17
+    b = 0.13
+    top.geometry(str(round(x * a)) +
+                 'x'
+                 + str(round(y * b)) +
+                 '+'
+                 + str(round((-a * x + x) / 2)) +
+                 '+'
+                 + str(round((-b * y + y) / 2)))
+
+    msg = tk.Label(top, text='Are you sure you want to exit?')
+    msg.grid(row=0, column=0, columnspan=2)
+
+    cancelButton = tk.Button(top, text='Cancel', command=top.destroy)
+    cancelButton.grid(row=1, column=0)
+
+    okButton = tk.Button(top, text="Ok", command=exit)
+    okButton.grid(row=1, column=1)
 
 
 class App(tk.Tk):
@@ -183,18 +235,17 @@ class App(tk.Tk):
         s.theme_use('clam')
         self.report_callback_exception = log_unhandled_exception
         self.connection = connection
-        # self.menubar = tk.Menu(self)
-        # self.file_menu = tk.Menu(self.menubar, tearoff=0)
-        # self.file_menu.add_command(label='Exit', command=exit)
-        # self.menubar.add_cascade(label='File', menu=self.file_menu)
-        # self.settings_menu = tk.Menu(self.menubar, tearoff=0)
-        # self.settings_menu.add_command(label='Email Settings', command=donothing)
-        # self.settings_menu.add_command(label='Database Settings', command=donothing)
-        # self.menubar.add_cascade(label='Settings', menu=self.settings_menu)
-        # self.database_menu = tk.Menu(self.menubar, tearoff=0)
-        # self.database_menu.add_command(label='Database Connection', command=donothing)
-        # self.menubar.add_cascade(label='Database', menu=self.database_menu)
-        # self.configure(background='black', menu=self.menubar)
+        self.menubar = tk.Menu(self)
+        self.file_menu = tk.Menu(self.menubar, tearoff=0)
+        self.file_menu.add_command(label='Check for Update', command=lambda: check_if_current(startup=False))
+        self.file_menu.add_command(label='Exit', command=exit)
+        self.menubar.add_cascade(label='File', menu=self.file_menu)
+
+        self.bank_menu = tk.Menu(self.menubar, tearoff=0)
+        self.bank_menu.add_command(label='Bank Details', command=lambda: BankDetails(self.connection, MainMenu))
+        self.menubar.add_cascade(label='Bank', menu=self.bank_menu)
+
+        self.configure(background='black', menu=self.menubar)
 
         self.screen_height = self.winfo_screenheight()
         self.screen_width = self.winfo_screenwidth()
@@ -1705,7 +1756,8 @@ class HistoryWindow(tk.Tk):
         self.email_host = email_host
         self.email_port = email_port
         self.email_password = email_password
-        if self.receipt_no >= 40000 and self.receipt_no < 50000:  # Invoice history
+        # Invoice history
+        if self.receipt_no >= 40000 and self.receipt_no < 50000:
             self.grid_columnconfigure(0, weight=1)
             self.grid_columnconfigure(1, weight=1)
             self.grid_columnconfigure(2, weight=1)
@@ -1864,7 +1916,8 @@ class HistoryWindow(tk.Tk):
                     messagebox.showerror('Error', 'Error occurred. Report to developer.')
             else:
                 messagebox.showerror('Error', 'Error occurred. Report to developer.')
-        elif self.receipt_no > 30000 and self.receipt_no < 40000:  # income history
+        # income history
+        elif self.receipt_no > 30000 and self.receipt_no < 40000:
             self.grid_columnconfigure(0, weight=1)
             self.grid_columnconfigure(1, weight=1)
             self.grid_columnconfigure(2, weight=1)
@@ -1930,7 +1983,8 @@ class HistoryWindow(tk.Tk):
             self.delete_button.grid(row=7, columnspan=3)
 
             self.attributes("-topmost", True)
-        elif self.receipt_no > 50000 and self.receipt_no < 70000:  # cash out or deposit
+        # cash out or deposit
+        elif self.receipt_no > 50000 and self.receipt_no < 70000:
             x = self.winfo_screenwidth()
             y = self.winfo_screenheight()
             a = 0.45
@@ -1983,7 +2037,8 @@ class HistoryWindow(tk.Tk):
             self.delete_transfer_button = tk.Button(self, text='Delete', command=self.delete_transfer_record)
             self.delete_transfer_button['font'] = button_font
             self.delete_transfer_button.grid(row=4, columnspan=3)
-        elif self.receipt_no > 70000 and self.receipt_no < 90000:  # expense history
+        # expense history
+        elif self.receipt_no > 70000 and self.receipt_no < 90000:
             x = self.winfo_screenwidth()
             y = self.winfo_screenheight()
             a = 0.45
@@ -2046,6 +2101,7 @@ class HistoryWindow(tk.Tk):
             self.delete_button.grid(row=7, columnspan=3)
 
             self.attributes("-topmost", True)
+        # refunds history
         elif self.receipt_no > 90000:
             self.grid_columnconfigure(0, weight=1)
             self.grid_columnconfigure(1, weight=1)
@@ -3667,6 +3723,101 @@ class ReportPeriod(tk.Tk):
 
         else:
             not_connected_message(self)
+
+
+class BankDetails(tk.Tk):
+    def __init__(self, connection, main_menu, *args, **kwargs):
+        self.databaseConnection = connection
+        self.main_menu = main_menu
+        self.report_callback_exception = log_unhandled_exception
+        tk.Tk.__init__(self, *args, **kwargs)
+        self.title('Bank Details')
+        self.grid_columnconfigure(0, weight=1)
+        self.grid_columnconfigure(1, weight=1)
+        self.grid_rowconfigure(0, weight=1)
+        self.grid_rowconfigure(1, weight=1)
+        self.grid_rowconfigure(2, weight=1)
+        self.grid_rowconfigure(3, weight=1)
+
+        x = self.winfo_screenwidth()
+        y = self.winfo_screenheight()
+        a = 0.35  # width
+        b = 0.2  # height
+        self.geometry(str(round(x * a)) +
+                      'x'
+                      + str(round(y * b)) +
+                      '+'
+                      + str(round((-a * x + x) / 2)) +
+                      '+'
+                      + str(round((-b * y + y) / 2)))
+
+        self.bank_details = self.databaseConnection.query(f'select bank_name, bsb, account_no, customer_name from bank_detail')
+        self.bank_details = self.bank_details[0]
+
+        title_label = tk.Label(self, text='Bank Details')
+        title_label.grid(row=0, columnspan=2)
+
+        bsb_label = tk.Label(self, text='BSB:')
+        bsb_label.grid(row=1, column=0)
+        self.bsb_var = tk.StringVar(self)
+        self.bsb_var.set(self.bank_details[1])
+        bsb_entry = tk.Entry(self, textvariable=self.bsb_var, width=round(self.winfo_screenwidth() * 0.03))
+        bsb_entry.grid(row=1, column=1)
+
+
+        account_no_label = tk.Label(self, text='Account No:')
+        account_no_label.grid(row=2, column=0)
+        self.account_no_var = tk.StringVar(self)
+        self.account_no_var.set(self.bank_details[2])
+        account_no_entry = tk.Entry(self, textvariable=self.account_no_var, width=round(self.winfo_screenwidth() * 0.03))
+        account_no_entry.grid(row=2, column=1)
+
+
+        bank_name_label = tk.Label(self, text='Bank Name:')
+        bank_name_label.grid(row=3, column=0)
+        self.bank_name_var = tk.StringVar(self)
+        self.bank_name_var.set(self.bank_details[0])
+        bank_name_entry = tk.Entry(self, textvariable=self.bank_name_var, width=round(self.winfo_screenwidth() * 0.03))
+        bank_name_entry.grid(row=3, column=1)
+
+        customer_name_label = tk.Label(self, text='Customer Name:')
+        customer_name_label.grid(row=4, column=0)
+        self.customer_name_var = tk.StringVar(self)
+        self.customer_name_var.set(self.bank_details[3])
+        customer_name_entry = tk.Entry(self, textvariable=self.customer_name_var, width=round(self.winfo_screenwidth() * 0.03))
+        customer_name_entry.grid(row=4, column=1)
+
+        cancel = tk.Button(self, text='Cancel', width=6, command=self.destroy)
+        cancel.grid(column=0, row=5)
+
+        submit = tk.Button(self, text='Submit', width=6, command=self.bank_detail_submit)
+        submit.grid(column=1, row=5)
+
+        self.attributes("-topmost", True)
+
+    def bank_detail_submit(self):
+        bsb = self.bsb_var.get()
+        account_no = self.account_no_var.get()
+        bank_name = self.bank_name_var.get()
+        customer_name = self.customer_name_var.get()
+
+        try:
+            self.databaseConnection.insert(f'update bank_detail set '
+                                           f'bank_name = "{bank_name}", '
+                                           f'bsb = "{bsb}", '
+                                           f'account_no = "{account_no}", '
+                                           f'customer_name = "{customer_name}"')
+            self.databaseConnection.commit()
+        except Exception as e:
+            self.databaseConnection.rollback()
+            print('Error Logged')
+            logger.exception(e)
+            messagebox.showwarning('Unknown Error',
+                                   f'An unknown error occurred and has been logged. Report to developer.')
+        else:
+            self.destroy()
+            messagebox.showinfo('Bank Details', 'Bank details successfully updated.', parent=self.main_menu)
+
 
 
 logger = logging.getLogger(__name__)
