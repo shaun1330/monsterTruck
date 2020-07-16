@@ -9,7 +9,8 @@ class MydatabaseConnection:
             user=user,
             password=password,
             host=host,
-            database=database)
+            database=database,
+            autocommit=False)
         print(f'Connected to {database}')
         if self.db.is_connected():
             self.db_Info = self.db.get_server_info()
@@ -45,6 +46,7 @@ class MydatabaseConnection:
 
     def is_connect(self):
         return self.db.is_connected()
+
 
 def errors():
     errors = mysql.connector.errors

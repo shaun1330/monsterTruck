@@ -1,6 +1,7 @@
 import tkinter as tk
 import requests
 import logging
+from sys import exit
 from tkinter.ttk import Treeview, Progressbar, Style
 from invoice_generator_class import InvoiceGenerator
 from receipt_generator_class import ReceiptGenerator
@@ -14,6 +15,7 @@ from tkcalendar import DateEntry
 from os import startfile
 from re import match
 from database_connection import MydatabaseConnection as myDb
+from database_connection import errors as db_errors
 from email_test import Emailer
 import matplotlib.pyplot as plt
 from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
@@ -46,6 +48,41 @@ def check_if_current():
             print(f'{version} is up to date.')
     else:
         messagebox.showwarning('Update server offline', 'Could not connected to update server. Try again later.')
+
+
+def input_check(cash_amount, transfer_amount):
+    if len(cash_amount) == 0:
+        cash_amount = '0'
+    if len(transfer_amount) == 0:
+        transfer_amount = '0'
+
+    tests = {'Cash value must be numeric':True,
+             'Cash value must be greater than zero':True,
+             'Transfer value must be numeric':True,
+             'Transfer value must be greater than zero':True}
+
+    if match(r'^-?\d+\.?(\d+)?$', cash_amount) is None:
+        tests['Cash value must be numeric'] = False
+    elif float(cash_amount) < 0:
+        tests['Cash value must be greater than zero'] = False
+
+    if match(r'^-?\d+\.?(\d+)?$', transfer_amount) is None:
+        tests['Transfer value must be numeric'] = False
+    elif float(transfer_amount) < 0:
+        tests['Transfer value must be greater than zero'] = False
+
+    error_string = ''
+
+
+    if all([value == True for value in tests.values()]):
+        return True
+    else:
+
+        error_string += 'The following fields are invalid:\n\n'
+        for key, value in tests.items():
+            if value == False:
+                error_string += "-" + key + '\n'
+        return error_string
 
 
 def log_unhandled_exception(type, value, traceback):
@@ -131,6 +168,11 @@ def not_connected_message(window):
 
 def donothing():
     pass
+
+
+def on_closing():
+    if messagebox.askyesno("Quit", 'Do you want to quit?'):
+        exit()
 
 
 class App(tk.Tk):
@@ -497,52 +539,59 @@ class MainMenu(tk.Frame):
         self.update_balance()
 
     def create_temp_table(self):
-        self.connect.insert('set @cashSum := 0;')
-        self.connect.insert('set @bankSum := 0;')
-        print(f'\t\tDropping payment_history{"."*10}', end='')
-        self.connect.insert('drop table if exists payment_history;')
-        print('Dropped')
-        print(f'\t\tCreating new payment_history{"."*10}', end='')
-        self.connect.insert('create table payment_history '
-                            'select '
-                            'n, payment_datetime, '
-                            'cash_amount, '
-                            'transfer_amount, '
-                            '(@cashSum := @cashSum + cash_amount) as cash_balance, '
-                            '(@bankSum := @bankSum + transfer_amount) as bank_balance '
-                            'from '
-                            '((select invoice_receipt_no as n, '
-                            'payment_datetime,'
-                            ' cash_amount, '
-                            'transfer_amount'
-                            ' from invoice_receipt where invoice_receipt_no != 40000) '
-                            'union all'
-                            ' (select expense_receipt_no as n, '
-                            'payment_datetime, '
-                            'cash_amount, '
-                            'transfer_amount '
-                            'from expense_receipt where expense_receipt_no != 70000)'
-                            'union all'
-                            ' (select transfer_no as n, '
-                            'payment_datetime, '
-                            'cash_amount, '
-                            'transfer_amount '
-                            'from transfer where transfer_no != 50000) '
-                            'union all'
-                            ' (select income_receipt_no as n, '
-                            'payment_datetime, '
-                            'cash_amount, '
-                            'transfer_amount '
-                            'from income_receipt) '
-                            'union all'
-                            ' (select refund_no as n, '
-                            'payment_datetime, '
-                            'cash_amount*-1, '
-                            'transfer_amount*-1 '
-                            'from refunds)) as hist '
-                            'order by payment_datetime;')
-        print('Done')
-
+        try:
+            self.connect.insert('set @cashSum := 0;')
+            self.connect.insert('set @bankSum := 0;')
+            print(f'\t\tDropping payment_history{"."*10}', end='')
+            self.connect.insert('drop table if exists payment_history;')
+            print('Dropped')
+            print(f'\t\tCreating new payment_history{"."*10}', end='')
+            self.connect.insert('create table payment_history '
+                                'select '
+                                'n, payment_datetime, '
+                                'cash_amount, '
+                                'transfer_amount, '
+                                '(@cashSum := @cashSum + cash_amount) as cash_balance, '
+                                '(@bankSum := @bankSum + transfer_amount) as bank_balance '
+                                'from '
+                                '((select invoice_receipt_no as n, '
+                                'payment_datetime,'
+                                ' cash_amount, '
+                                'transfer_amount'
+                                ' from invoice_receipt where invoice_receipt_no != 40000) '
+                                'union all'
+                                ' (select expense_receipt_no as n, '
+                                'payment_datetime, '
+                                'cash_amount, '
+                                'transfer_amount '
+                                'from expense_receipt where expense_receipt_no != 70000)'
+                                'union all'
+                                ' (select transfer_no as n, '
+                                'payment_datetime, '
+                                'cash_amount, '
+                                'transfer_amount '
+                                'from transfer where transfer_no != 50000) '
+                                'union all'
+                                ' (select income_receipt_no as n, '
+                                'payment_datetime, '
+                                'cash_amount, '
+                                'transfer_amount '
+                                'from income_receipt) '
+                                'union all'
+                                ' (select refund_no as n, '
+                                'payment_datetime, '
+                                'cash_amount*-1, '
+                                'transfer_amount*-1 '
+                                'from refunds)) as hist '
+                                'order by payment_datetime;')
+            self.connect.commit()
+            print('Done')
+        except Exception as e:
+            self.connect.rollback()
+            logger.exception(e)
+            messagebox.showwarning('Unknown Error',
+                                   f'An unknown error occurred and has been logged. Report to developer.',
+                                   parent=self)
     @activity_log
     def on_double_click_invoice(self, a):
         if self.connect != None:
@@ -713,7 +762,6 @@ class MainMenu(tk.Frame):
                 'payment_datetime between now() - INTERVAL 6 MONTH and NOW() '
                 'order by payment_datetime desc;')
         else:
-
             self.end_of_month_balance = [(datetime.today() - relativedelta(months=i),0) for i in range(0,6)]
 
         months = [c[0] for c in self.end_of_month_balance]
@@ -1162,13 +1210,14 @@ class EditMember(tk.Tk):
                                  f'member_status = "{status}" '
                                  f'where '
                                  f'member_no = {self.member_no}')
+            self.databaseConnection.commit()
         except Exception as e:
+            self.databaseConnection.rollback()
             print('Error Logged')
             logger.exception(e)
             messagebox.showwarning('Unknown Error',
                                    f'An unknown error occurred and has been logged. Report to developer.')
         else:
-            self.databaseConnection.commit()
             self.member_page.update_window()
             self.destroy()
 
@@ -1351,8 +1400,6 @@ class InvoiceWindow(tk.Tk):
     def submit_invoice_command(self):
         if self.databaseConnection != None:
                 invoice_total = str(self.total)
-
-                # self.databaseConnection.reconnect()
                 self.current_invoice_no = self.databaseConnection.query('select max(invoice_no)+1 from invoice;')
 
                 q = invoice_total.split('.')
@@ -1417,28 +1464,22 @@ class InvoiceWindow(tk.Tk):
                                                    f'{invoice_total}, '
                                                    f'{member_no}, '
                                                    f'"No")')
+                    for line in self.item_prices:
+                        item_code = line[0]
+                        item_price = line[2]
+                        item_qty = line[3]
+
+                        self.databaseConnection.insert(f'insert into invoice_line '
+                                                   f'(invoice_no, item_code, item_qty, invoice_item_value) values '
+                                                   f'({self.current_invoice_no}, {item_code}, {item_qty}, {item_price})')
+                    self.databaseConnection.commit()
                 except Exception as e:
+                    self.databaseConnection.rollback()
                     print('Error Logged')
                     logger.exception(e)
                     messagebox.showwarning('Unknown Error',
                                            f'An unknown error occurred and has been logged. Report to developer.')
                 else:
-                    self.databaseConnection.commit()
-
-                    for line in self.item_prices:
-                        item_code = line[0]
-                        item_price = line[2]
-                        item_qty = line[3]
-                        try:
-                            self.databaseConnection.insert(f'insert into invoice_line '
-                                                       f'(invoice_no, item_code, item_qty, invoice_item_value) values '
-                                                       f'({self.current_invoice_no}, {item_code}, {item_qty}, {item_price})')
-                        except Exception as e:
-                            print('Error Logged')
-                            logger.exception(e)
-                            messagebox.showwarning('Unknown Error',
-                                                   f'An unknown error occurred and has been logged. Report to developer.')
-                    self.databaseConnection.commit()
                     invoice_copy.save('.\\config\\invoice_pdfs')
                     self.main_menu.update_tables()
                     self.destroy()
@@ -1636,6 +1677,7 @@ class NewMemberPage(tk.Tk):
                                              f'"{email}", '
                                              f'"{status}")')
                 except Exception as e:
+                    self.dbconnection.rollback()
                     print('Error Logged')
                     logger.exception(e)
                     messagebox.showwarning('Unknown Error',
@@ -1681,6 +1723,7 @@ class HistoryWindow(tk.Tk):
             y = self.winfo_screenheight()
             a = 0.45
             b = 0.65
+            self.title('Invoice')
             self.geometry(str(round(x * a)) +
                           'x'
                           + str(round(y * b)) +
@@ -1836,6 +1879,7 @@ class HistoryWindow(tk.Tk):
             y = self.winfo_screenheight()
             a = 0.45
             b = 0.35
+            self.title('Income')
             self.geometry(str(round(x * a)) +
                           'x'
                           + str(round(y * b)) +
@@ -1915,9 +1959,11 @@ class HistoryWindow(tk.Tk):
                                                           f'where transfer_no = {receipt_no}')
             transfer_data = transfer_data[0]
             if type == 'Cash out':
+                self.title('Cash out')
                 self.invoice_heading = tk.Label(self, text=f'Cash Out: {self.receipt_no}', font='Courier 30 bold')
                 self.invoice_heading.grid(row=0, columnspan=3, sticky='w')
             elif type == 'Deposit':
+                self.title('Deposit')
                 self.invoice_heading = tk.Label(self, text=f'Bank Deposit: {self.receipt_no}', font='Courier 30 bold')
                 self.invoice_heading.grid(row=0, columnspan=3, sticky='w')
 
@@ -1973,7 +2019,7 @@ class HistoryWindow(tk.Tk):
                                                          'expense_receipt.expense_id = expense.expense_id '
                                                          f'where expense_receipt_no = {receipt_no}')
             expense_data = expense_data[0]
-
+            self.title('Expense')
             self.invoice_heading = tk.Label(self, text=f'Club Expense: {self.receipt_no}', font='Courier 30 bold')
             self.invoice_heading.grid(row=0, columnspan=3, sticky='w')
 
@@ -2025,6 +2071,7 @@ class HistoryWindow(tk.Tk):
                           + str(round((-a * x + x) / 2)) +
                           '+'
                           + str(round((-b * y + y) / 2)))
+            self.title('Refund')
             try:
                 self.invoice_data = self.databaseConnection.query(f'select '
                                                                   f'refunds.invoice_receipt_no, '
@@ -2156,6 +2203,7 @@ class HistoryWindow(tk.Tk):
         delete_yesno = messagebox.askyesno('Delete Transfer', 'Are you sure you want to delete this transfer record?', parent=self)
         if delete_yesno:
             self.databaseConnection.insert(f'delete from transfer where transfer_no = {self.receipt_no}')
+            self.databaseConnection.commit()
             self.main_menu.update_tables()
             self.destroy()
             messagebox.showinfo('Delete Transfer', 'Transfer record deleted successfully', parent=self.main_menu)
@@ -2538,12 +2586,19 @@ class Receipt_window(tk.Tk):
         # self.databaseConnection.reconnect()
         warning = messagebox.askyesno('Delete Invoice', 'Are you sure you want to delete this invoice?', parent=self)
         if warning:
-            self.databaseConnection.insert(f'delete from invoice_line where invoice_no = {self.invoice_no}')
-            self.databaseConnection.commit()
-            self.databaseConnection.insert(f'delete from invoice where invoice_no = {self.invoice_no}')
-            self.databaseConnection.commit()
-            self.main_menu.update_tables()
-            self.destroy()
+            try:
+                self.databaseConnection.insert(f'delete from invoice_line where invoice_no = {self.invoice_no}')
+                self.databaseConnection.insert(f'delete from invoice where invoice_no = {self.invoice_no}')
+                self.databaseConnection.commit()
+            except Exception as e:
+                self.databaseConnection.rollback()
+                logger.exception(e)
+                messagebox.showwarning('Unknown Error',
+                                       f'An unknown error occurred and has been logged. Report to developer.',
+                                       parent=self)
+            else:
+                self.main_menu.update_tables()
+                self.destroy()
 
     @activity_log
     def send_invoice(self):
@@ -2584,7 +2639,7 @@ class ReceiptCashOrTransfer(tk.Tk):
         self.grid_rowconfigure(4, weight=1)
         self.grid_columnconfigure(0, weight=1)
         self.grid_columnconfigure(1, weight=1)
-
+        self.title('Issue Receipt')
         self.invoice_no = invoice_no
         self.invoice_total = invoice_total
         self.report_callback_exception = log_unhandled_exception
@@ -2634,54 +2689,33 @@ class ReceiptCashOrTransfer(tk.Tk):
 
     @activity_log
     def submit_receipt(self):
-        error = 0
         self.cash = self.cash_var.get()
-        if len(self.cash) == 0:
-            self.cash = 0
-        elif match(r'^-?\d+\.?(\d+)?$', self.cash) is None:
-            messagebox.showerror('Value Error', 'Cash value must be numeric', parent=self)
-            error = 1
-        else:
-            self.cash = float(self.cash)
-
         self.transfer = self.transfer_var.get()
-        if len(self.transfer) == 0:
-            self.transfer = 0
-        elif match(r'^-?\d+\.?(\d+)?$', self.transfer) is None:
-            messagebox.showerror('Value Error', 'Transfer value must be numeric', parent=self)
-            error = 1
+        input_test_results = input_check(self.cash, self.transfer)
+        if input_test_results != True:
+            messagebox.showwarning('Input Error', input_test_results, parent=self)
         else:
-            self.transfer = float(self.transfer)
-
-        if error != 1:
-            self.total = round(self.cash + self.transfer,2)
-            print(self.cash, self.transfer, self.total)
-            if self.total != float(self.invoice_total):
-                messagebox.showerror('Value Error', 'Cash and transfer values do not equal invoice total', parent=self)
+            if self.cash == '':
+                self.cash = 0
+            if self.transfer == '':
+                self.transfer = 0
+            if self.transfer == 0 and self.cash == 0:
+                messagebox.showwarning('Input Error', 'Cash and Transfer values cannot both be zero.')
             else:
-                self.receipt_insert()
-                self.destroy()
-                self.receipt_window.destroy()
-                messagebox.showinfo('Receipt Submitted', 'Receipt has successfully been submitted', parent=self.main_menu)
-                yesno = messagebox.askyesno('Send Receipt', f'Do you want to send this receipt to {self.member_email}? ')
-                if yesno:
-                    print(f'sending receipt to {self.member_email}')
-                    sender = Emailer('Greater Western 4x4 Club Receipt',  # subject
-                            f'To {self.fullname},\n\n'  # body
-                            f' See attached your Greater Western 4x4 receipt.\n\n',
-                            self.email_address,  # sender
-                            self.member_email,  # receiver
-                            self.email_password, self.email_host, self.email_port,  # email password
-                            attachment_path=f'./config/receipt_pdfs/R{self.current_receipt_no}.pdf', filename=f'R{self.current_receipt_no}.pdf')  # receipt attachment
-                    status = sender.get_status()
-                    if status == '1':
-                        self.databaseConnection.insert(
-                            f'update invoice_receipt set receipt_sent = "Yes" where invoice_receipt_no = {self.current_receipt_no}')
-                        messagebox.showinfo('Receipt Sent', 'Receipt successfully sent.')
-                    else:
-                        messagebox.showerror('Email Failed',
-                                             'Receipt failed to be sent. Check email \ncredentials are correct.',
-                                             parent=self.main_menu)
+                self.cash = float(self.cash)
+                self.transfer = float(self.transfer)
+                self.total = round(self.cash + self.transfer, 2)
+                print(self.cash, self.transfer, self.total)
+                if self.total != float(self.invoice_total):
+                    messagebox.showerror('Value Error', 'Cash and transfer values do not equal invoice total.', parent=self)
+                else:
+                    self.receipt_insert()
+                    self.destroy()
+                    self.receipt_window.destroy()
+                    messagebox.showinfo('Receipt Submitted', 'Receipt has successfully been submitted', parent=self.main_menu)
+                    yesno = messagebox.askyesno('Send Receipt', f'Do you want to send this receipt to {self.member_email}? ')
+                    if yesno:
+                        self.send_email()
 
     @activity_log
     def receipt_insert(self):
@@ -2752,6 +2786,26 @@ class ReceiptCashOrTransfer(tk.Tk):
         self.main_menu.update_tables()
         receipt_gen.save('.\\config\\receipt_pdfs')
         print('Success')
+
+    @activity_log
+    def send_email(self):
+        print(f'sending receipt to {self.member_email}')
+        sender = Emailer('Greater Western 4x4 Club Receipt',  # subject
+                f'To {self.fullname},\n\n'  # body
+                f' See attached your Greater Western 4x4 receipt.\n\n',
+                self.email_address,  # sender
+                self.member_email,  # receiver
+                self.email_password, self.email_host, self.email_port,  # email password
+                attachment_path=f'./config/receipt_pdfs/R{self.current_receipt_no}.pdf', filename=f'R{self.current_receipt_no}.pdf')  # receipt attachment
+        status = sender.get_status()
+        if status == '1':
+            self.databaseConnection.insert(
+                f'update invoice_receipt set receipt_sent = "Yes" where invoice_receipt_no = {self.current_receipt_no}')
+            messagebox.showinfo('Receipt Sent', 'Receipt successfully sent.')
+        else:
+            messagebox.showerror('Email Failed',
+                                 'Receipt failed to be sent. Check email \ncredentials are correct.',
+                                 parent=self.main_menu)
 
 
 class ExpenseWindow(tk.Tk):
@@ -2860,149 +2914,85 @@ class ExpenseWindow(tk.Tk):
     @activity_log
     def submit(self):
         if self.databaseConnection != None:
-            # self.databaseConnection.reconnect()
             date = self.date_calendar.get()
-
             current_expense_no = self.databaseConnection.query('select max(expense_receipt_no)+1 from expense_receipt;')
             current_expense_no = current_expense_no[0][0]
             notes = self.get_text()
             self.cash = self.expense_cash_var.get()
             self.transfer = self.expense_transfer_var.get()
-            error = 0
-            new_cat = 0
-            if (self.cash == '' or self.cash == 0) and (self.transfer == '' or self.transfer == 0):
+
+            if self.expense_var.get() == 'Select Category':
+                messagebox.showerror('Select Category', 'Please select a category in the drop down menu\n'
+                                                        'or add a new one.', parent=self)
+            elif self.expense_var.get() == '---- New Category ----' and len(self.new_category_var.get()) == 0:
+                    messagebox.showerror('New Category', 'New Category field cannot be empty', parent=self)
+            elif (self.cash == '' or self.cash == 0) and (self.transfer == '' or self.transfer == 0) :
                 messagebox.showerror('Missing Values', 'Cash and transfer values cannot be both zero', parent=self)
             else:
-                if len(self.cash) == 0:
-                    self.cash = 0
-                elif match(r'^-?\d+\.?(\d+)?$', self.cash) is None:
-                    messagebox.showerror('Value Error', 'Cash value must be numeric', parent=self)
-                    error = 1
+                input_test_results = input_check(self.cash, self.transfer)
+                if input_test_results != True:
+                    messagebox.showwarning('Input Error', input_test_results, parent=self)
                 else:
-                    self.cash = float(self.cash)
-                if error == 0 and self.cash < 0:
-                    messagebox.showerror('Value Error', 'Cash value must be greater than zero', parent=self)
-                elif error == 0 and self.cash >= 0:
-                    self.cash = -self.cash
-                    if len(self.transfer) == 0:
+                    if self.cash == '':
+                        self.cash = 0
+                    if self.transfer == '':
                         self.transfer = 0
-                    elif match(r'^-?\d+\.?(\d+)?$', self.transfer) is None:
-                        messagebox.showerror('Value Error', 'Transfer value must be numeric', parent=self)
-                        error = 1
-                    else:
-                        self.transfer = float(self.transfer)
-
-                    if error == 0 and self.transfer < 0:
-                        messagebox.showerror('Value Error', 'Transfer value must be greater than zero', parent=self)
-                    elif error == 0 and self.transfer >= 0:
-                        self.transfer = -self.transfer
-                        if self.expense_var.get() == 'Select Category':
-                            messagebox.showerror('Select Category', 'Please select a category in the drop down menu\n'
-                                                                    'or add a new one.', parent=self)
-                            error = 1
-                        elif self.expense_var.get() == '---- New Category ----':
-                            new_cat = 1
-                            if len(self.new_category_var.get()) == 0:
-                                error = 1
-                                messagebox.showerror('New Category', 'New Category field cannot be empty', parent=self)
-                            else:
-                                current_expense_cat_no = self.databaseConnection.query('select '
-                                                                                       'max(expense_id)+1 '
-                                                                                       'from expense;')
-                                current_expense_cat_no = current_expense_cat_no[0][0]
-                                self.databaseConnection.insert(f'insert into '
-                                                               f'expense '
-                                                               f'(expense_id, '
-                                                               f'expense_description) '
-                                                               f'values '
-                                                               f'({current_expense_cat_no}, '
-                                                               f'"{self.new_category_var.get()}");')
-                                self.databaseConnection.commit()
-                                if date == datetime.today().strftime(format="%d/%m/%Y"):
-                                    self.databaseConnection.insert(f'insert into '
-                                                                   f'expense_receipt '
-                                                                   f'(expense_receipt_no, '
-                                                                   f'expense_id, '
-                                                                   f'cash_amount, '
-                                                                   f'transfer_amount, '
-                                                                   f'payment_datetime, '
-                                                                   f'expense_notes) '
-                                                                   f'values '
-                                                                   f'({current_expense_no}, '
-                                                                   f'{current_expense_cat_no}, '
-                                                                   f'{self.cash}, '
-                                                                   f'{self.transfer}, '
-                                                                   f'now(), '
-                                                                   f'"{notes}");')
-                                else:
-                                    self.databaseConnection.insert(f'insert into '
-                                                                   f'expense_receipt '
-                                                                   f'(expense_receipt_no, '
-                                                                   f'expense_id, '
-                                                                   f'cash_amount, '
-                                                                   f'transfer_amount, '
-                                                                   f'payment_datetime, '
-                                                                   f'expense_notes) '
-                                                                   f'values '
-                                                                   f'({current_expense_no}, '
-                                                                   f'{current_expense_cat_no}, '
-                                                                   f'{self.cash}, '
-                                                                   f'{self.transfer}, '
-                                                                   f'str_to_date("{date}","%d/%m/%Y"), '
-                                                                   f'"{notes}");')
+                    self.cash = float(self.cash)
+                    self.transfer = float(self.transfer)
+                    try:
+                        if self.expense_var.get() == '---- New Category ----':
+                            self.insert_new_cat()
+                            self.expense_id = self.current_expense_cat_no
+                        if date == datetime.today().strftime(format="%d/%m/%Y"):
+                            date_field = 'now()'
                         else:
-                            expense_id = self.expense_dict[self.expense_var.get()]
-                        if new_cat == 0 and error == 0:
-                            try:
-                                    if date == datetime.today().strftime(format="%d/%m/%Y"):
-                                        self.databaseConnection.insert(f'insert into '
-                                                                       f'expense_receipt '
-                                                                       f'(expense_receipt_no, '
-                                                                       f'expense_id, '
-                                                                       f'cash_amount, '
-                                                                       f'transfer_amount, '
-                                                                       f'payment_datetime, '
-                                                                       f'expense_notes) '
-                                                                       f'values '
-                                                                       f'({current_expense_no}, '
-                                                                       f'{expense_id}, '
-                                                                       f'{self.cash}, '
-                                                                       f'{self.transfer}, '
-                                                                       f'now(), '
-                                                                       f'"{notes}");')
-                                    else:
-                                        self.databaseConnection.insert(f'insert into '
-                                                                       f'expense_receipt '
-                                                                       f'(expense_receipt_no, '
-                                                                       f'expense_id, '
-                                                                       f'cash_amount, '
-                                                                       f'transfer_amount, '
-                                                                       f'payment_datetime, '
-                                                                       f'expense_notes) '
-                                                                       f'values '
-                                                                       f'({current_expense_no}, '
-                                                                       f'{expense_id}, '
-                                                                       f'{self.cash}, '
-                                                                       f'{self.transfer}, '
-                                                                       f'str_to_date("{date}","%d/%m/%Y"), '
-                                                                       f'"{notes}");')
-                            except Exception as e:
-                                print('Error Logged')
-                                logger.exception(e)
-                                messagebox.showwarning('Unknown Error',
-                                                       f'An unknown error occurred and has been logged. Report to developer.')
-                            else:
-                                self.databaseConnection.commit()
-                                self.main_menu.update_tables()
-                                self.destroy()
-                                messagebox.showinfo('Expense Recorded', 'New expense recorded successfully',
-                                                    parent=self.main_menu)
-        else:
-            not_connected_message(self)
+                            date_field = 'str_to_date("{date}","%d/%m/%Y")'
+                        self.expense_id = self.expense_dict[self.expense_var.get()]
+                        self.databaseConnection.insert(f'insert into '
+                                                       f'expense_receipt '
+                                                       f'(expense_receipt_no, '
+                                                       f'expense_id, '
+                                                       f'cash_amount, '
+                                                       f'transfer_amount, '
+                                                       f'payment_datetime, '
+                                                       f'expense_notes) '
+                                                       f'values '
+                                                       f'({current_expense_no}, '
+                                                       f'{self.expense_id}, '
+                                                       f'-{self.cash}, '  # make negative as is an expense
+                                                       f'-{self.transfer}, '   # make negative as is an expense
+                                                       f'{date_field}, '
+                                                       f'"{notes}");')
+                        self.databaseConnection.commit()
+                    except Exception as e:
+                        self.databaseConnection.rollback()
+                        logger.exception(e)
+                        messagebox.showwarning('Unknown Error',
+                                               f'An unknown error occurred and has been logged. Report to developer.',
+                                               parent=self)
+                    else:
+                        self.main_menu.update_tables()
+                        self.destroy()
+                        messagebox.showinfo('Expense Recorded', 'New expense recorded successfully',
+                                            parent=self.main_menu)
 
     def get_text(self):
         text = self.note.get('1.0', 'end')
         return text
+
+    def insert_new_cat(self):
+        self.current_expense_cat_no = self.databaseConnection.query('select '
+                                                       'max(expense_id)+1 '
+                                                       'from expense;')
+        self.current_expense_cat_no = self.current_expense_cat_no[0][0]
+        self.databaseConnection.insert(f'insert into '
+                                       f'expense '
+                                       f'(expense_id, '
+                                       f'expense_description) '
+                                       f'values '
+                                       f'({self.current_expense_cat_no}, '
+                                       f'"{self.new_category_var.get()}");')
+        # self.databaseConnection.commit()
 
 
 class IncomeWindow(tk.Tk):
@@ -3110,159 +3100,68 @@ class IncomeWindow(tk.Tk):
     @activity_log
     def submit(self):
         if self.databaseConnection != None:
-            # self.databaseConnection.reconnect()
             date = self.date_calendar.get()
             current_income_no = self.databaseConnection.query('select max(income_receipt_no)+1 from income_receipt;')
             current_income_no = current_income_no[0][0]
             notes = self.get_text()
             self.cash = self.income_cash_var.get()
             self.transfer = self.income_transfer_var.get()
-            error = 0
-            new_cat = 0
-            if (self.cash == '' or self.cash == 0) and (self.transfer == '' or self.transfer == 0):
+
+            if self.income_var.get() == 'Select Category':
+                messagebox.showerror('Select Category', 'Please select a category in the drop down menu\n'
+                                                        'or add a new one.', parent=self)
+            elif self.income_var.get() == '---- New Category ----' and len(self.new_category_var.get()) == 0:
+                    messagebox.showerror('New Category', 'New Category field cannot be empty', parent=self)
+            elif (self.cash == '' or self.cash == 0) and (self.transfer == '' or self.transfer == 0) :
                 messagebox.showerror('Missing Values', 'Cash and transfer values cannot be both zero', parent=self)
             else:
-                if len(self.cash) == 0:
-                    self.cash = 0
-                elif match(r'^-?\d+.?(\d+)?$', self.cash) is None:
-                    messagebox.showerror('Value Error', 'Cash value must be numeric', parent=self)
-                    error = 1
+                input_test_results = input_check(self.cash, self.transfer)
+                if input_test_results != True:
+                    messagebox.showwarning('Input Error', input_test_results, parent=self)
                 else:
-                    self.cash = float(self.cash)
-                if error == 0 and self.cash < 0:
-                    messagebox.showerror('Value Error', 'Cash value must be greater than zero', parent=self)
-                elif error == 0 and self.cash >= 0:
-                    if len(self.transfer) == 0:
+                    if self.cash == '':
+                        self.cash = 0
+                    if self.transfer == '':
                         self.transfer = 0
-                    elif match(r'^-?\d+.?(\d+)?$', self.transfer) is None:
-                        messagebox.showerror('Value Error', 'Transfer value must be numeric', parent=self)
-                        error = 1
+                    self.cash = float(self.cash)
+                    self.transfer = float(self.transfer)
+                    if self.income_var.get() == '---- New Category ----':
+                        self.insert_new_cat()
+                        self.income_id = self.current_income_cat_no
+                    if date == datetime.today().strftime(format="%d/%m/%Y"):
+                        date_field = 'now()'
                     else:
-                        self.transfer = float(self.transfer)
-                    if error == 0 and self.transfer < 0:
-                        messagebox.showerror('Value Error', 'Transfer value must be greater than zero', parent=self)
-                    elif error == 0 and self.transfer >= 0:
-                        if self.income_var.get() == 'Select Category':
-                            messagebox.showerror('Select Category', 'Please select a category in the drop down menu\n'
-                                                                    'add a new one.', parent=self)
-                        elif self.income_var.get() == '---- New Category ----':
-                            if len(self.new_category_var.get()) == 0:
-                                messagebox.showerror('New Category', 'New Category field cannot be empty', parent=self)
-                                error = 1
-                            else:
-                                current_income_cat_no = self.databaseConnection.query('select max(income_id)+1 from income;')
-                                current_income_cat_no = current_income_cat_no[0][0]
+                        date_field = 'str_to_date("{date}","%d/%m/%Y")'
+                    self.income_id = self.income_dict[self.income_var.get()]
+                    try:
+                        self.databaseConnection.insert(f'insert into '
+                                                       f'income_receipt '
+                                                       f'(income_receipt_no, '
+                                                       f'income_id, '
+                                                       f'cash_amount, '
+                                                       f'transfer_amount, '
+                                                       f'payment_datetime, '
+                                                       f'income_notes) '
+                                                       f'values '
+                                                       f'({current_income_no}, '
+                                                       f'{self.income_id}, '
+                                                       f'{self.cash}, '  
+                                                       f'{self.transfer}, '   
+                                                       f'{date_field}, '
+                                                       f'"{notes}");')
+                    except Exception as e:
+                        self.databaseConnection.rollback()
+                        logger.exception(e)
+                        messagebox.showwarning('Unknown Error',
+                                               f'An unknown error occurred and has been logged. Report to developer.',
+                                               parent=self)
+                    else:
+                        self.databaseConnection.commit()
+                        self.main_menu.update_tables()
+                        self.destroy()
+                        messagebox.showinfo('Income Recorded', 'New income recorded successfully',
+                                            parent=self.main_menu)
 
-                                self.databaseConnection.insert(f'insert into '
-                                                               f'income '
-                                                               f'(income_id, '
-                                                               f'income_description) '
-                                                               f'values '
-                                                               f'({current_income_cat_no}, '
-                                                               f'"{self.new_category_var.get()}");')
-                                self.databaseConnection.commit()
-
-                                if date == datetime.today().strftime('%d/%m/%Y'):
-                                    self.databaseConnection.insert(f'insert into '
-                                                                   f'income_receipt '
-                                                                   f'(income_receipt_no, '
-                                                                   f'income_id, '
-                                                                   f'cash_amount, '
-                                                                   f'transfer_amount, '
-                                                                   f'payment_datetime, '
-                                                                   f'income_notes) '
-                                                                   f'values '
-                                                                   f'({current_income_no}, '
-                                                                   f'{current_income_cat_no}, '
-                                                                   f'{self.cash}, '
-                                                                   f'{self.transfer}, '
-                                                                   f'now(), '
-                                                                   f'"{notes}");')
-                                else:
-                                    self.databaseConnection.insert(f'insert into '
-                                                                   f'income_receipt '
-                                                                   f'(income_receipt_no, '
-                                                                   f'income_id, '
-                                                                   f'cash_amount, '
-                                                                   f'transfer_amount, '
-                                                                   f'payment_datetime, '
-                                                                   f'income_notes) '
-                                                                   f'values '
-                                                                   f'({current_income_no}, '
-                                                                   f'{current_income_cat_no}, '
-                                                                   f'{self.cash}, '
-                                                                   f'{self.transfer}, '
-                                                                   f'str_to_date("{date}","%d/%m/%Y"), '
-                                                                   f'"{notes}");')
-                                # self.databaseConnection.commit()
-                                # self.main_menu.update_tables()
-                                # self.destroy()
-                                # messagebox.showinfo('Income Recorded', 'New income recorded successfully',
-                                #                     parent=self.main_menu)
-                                new_cat = 1  # if new cat was recorded, change new cat variable
-                        else:
-                            income_id = self.income_dict[self.income_var.get()]
-                        try:
-                            if new_cat == 0 and error == 0:  # if a current cat was used
-                                if date == datetime.today().strftime('%d/%m/%Y'):
-                                    self.databaseConnection.insert(f'insert into '
-                                                                   f'income_receipt '
-                                                                   f'(income_receipt_no, '
-                                                                   f'income_id, '
-                                                                   f'cash_amount, '
-                                                                   f'transfer_amount, '
-                                                                   f'payment_datetime, '
-                                                                   f'income_notes) '
-                                                                   f'values '
-                                                                   f'({current_income_no}, '
-                                                                   f'{income_id}, '
-                                                                   f'{self.cash}, '
-                                                                   f'{self.transfer}, '
-                                                                   f'now(), '
-                                                                   f'"{notes}");')
-                                else:
-                                    self.databaseConnection.insert(f'insert into '
-                                                                   f'income_receipt '
-                                                                   f'(income_receipt_no, '
-                                                                   f'income_id, '
-                                                                   f'cash_amount, '
-                                                                   f'transfer_amount, '
-                                                                   f'payment_datetime, '
-                                                                   f'income_notes) '
-                                                                   f'values '
-                                                                   f'({current_income_no}, '
-                                                                   f'{income_id}, '
-                                                                   f'{self.cash}, '
-                                                                   f'{self.transfer}, '
-                                                                   f'str_to_date("{date}","%d/%m/%Y"), '
-                                                                   f'"{notes}");')
-                        except Exception as e:
-                            print('Error Logged')
-                            string = (f'insert into '
-                                                           f'income_receipt '
-                                                           f'(income_receipt_no, '
-                                                           f'income_id, '
-                                                           f'cash_amount, '
-                                                           f'transfer_amount, '
-                                                           f'payment_datetime, '
-                                                           f'income_notes) '
-                                                           f'values '
-                                                           f'({current_income_no}, '
-                                                           f'{income_id}, '
-                                                           f'{self.cash}, '
-                                                           f'{self.transfer}, '
-                                                           f'str_to_date("{date}","%d/%m/%Y"), '
-                                                           f'"{notes}");')
-                            logger.exception(f"Error with Edit Member\nInsert String: {string}")
-                            messagebox.showwarning('Unknown Error',
-                                                   f'An unknown error occurred and has been logged. Report to developer.')
-                        else:
-                            self.databaseConnection.commit()
-                            self.main_menu.update_tables()
-                            self.destroy()
-                            messagebox.showinfo('Income Added', 'Income Added', parent=self.main_menu)
-        else:
-            not_connected_message(self)
 
     def get_text(self):
         text = self.note.get('1.0', 'end')
@@ -3748,8 +3647,9 @@ class ReportPeriod(tk.Tk):
                                                  'from invoice join members on invoice.member_no = members.member_no'
                                                  ' where invoice_no not in (select invoice_no from invoice_receipt) '
                                                  'order by invoice_no desc;')
+            report_name =  f'Report({report_start.replace("/", "-")}_to_{report_end.replace("/", "-")}).pdf'
 
-            report = CommiteeReportGenerator(f'Report({report_start.replace("/", "-")}_to_{report_end.replace("/", "-")}).pdf',
+            report = CommiteeReportGenerator(report_name,
                                              datetime.today().date().strftime('%d/%m/%y'),
                                              report_start + ' to ' + report_end)
 
@@ -3761,7 +3661,10 @@ class ReportPeriod(tk.Tk):
             report.draw_image()
             report.save('./config/committee_reports')
             self.destroy()
-            messagebox.showinfo('Committee Report', 'Committee report was successfully created', parent=self.main_menu)
+            view = messagebox.askyesno('Committee Report', 'Committee report was successfully created. Would you like to view it?' , parent=self.main_menu)
+            if view:
+                startfile(f'.\\config\\committee_reports\\{report_name}')
+
         else:
             not_connected_message(self)
 
@@ -3787,6 +3690,7 @@ else:
 app = App(email_address, email_password, email_host, email_port, connection=databaseConnection, connection_error=db_connection_error)  # initialise app
 print("*"*30)
 print('App loaded')
+app.protocol("WM_DELETE_WINDOW", on_closing)
 app.mainloop()
 
 # db_errors().ProgrammingError ##wrong password, wrong_user, wrong database
