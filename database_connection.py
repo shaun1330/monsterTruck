@@ -5,6 +5,7 @@ class MydatabaseConnection:
         self.user = user
         self.host = host
         self.database = database
+        self.errors = mysql.connector.errors
         self.db = mysql.connector.connect(
             user=user,
             password=password,
@@ -47,9 +48,12 @@ class MydatabaseConnection:
     def is_connect(self):
         return self.db.is_connected()
 
+    def sanitise(self, string):
+        return self.db.converter.escape(string)
 
-def errors():
-    errors = mysql.connector.errors
-    return errors
+
+# def errors():
+#     errors = mysql.connector.errors
+#     return errors
 
 

@@ -15,16 +15,47 @@ from tkcalendar import DateEntry
 from os import startfile
 from re import match
 from database_connection import MydatabaseConnection as myDb
-from database_connection import errors as db_errors
 from email_test import Emailer
 import matplotlib.pyplot as plt
+from matplotlib.ticker import MultipleLocator, AutoMinorLocator
 from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
 from matplotlib.figure import Figure
 from openpyxl import Workbook
 from json import loads
 
 
-version = 'v2.4.0.beta'
+version = 'v2.4.0'
+
+button_pressed_color = '#f15000'
+button_hover_color = '#1946eb'
+button_hover_text_color = 'white'
+
+
+# custom message box for abort retry and ignore when sending emails
+def abortretryignore(title=None, message=None, **options):
+    _show = messagebox._show
+    s = _show(title, message, messagebox.WARNING, messagebox.ABORTRETRYIGNORE, **options)
+    # s might be a Tcl index object, so convert it to a string
+    s = str(s)
+    if s == messagebox.IGNORE:
+        return None
+    elif s == messagebox.RETRY:
+        return True
+    else:
+        return False
+
+
+def on_hover(event):
+    event.widget["bg"] = button_hover_color
+    event.widget["fg"] = button_hover_text_color
+    event.widget["relief"] = tk.RAISED
+
+
+def off_hover(event):
+    event.widget["bg"] = "SystemButtonFace"
+    event.widget['fg'] = 'black'
+    event.widget['relief'] = tk.RAISED
+
 
 def activity_log(func):
     def log_wrapper(*args, **kwargs):
@@ -33,6 +64,7 @@ def activity_log(func):
         f = func(*args, **kwargs)
         return f
     return log_wrapper
+
 
 @activity_log
 def check_if_current(startup=True):
@@ -65,7 +97,10 @@ def check_if_current(startup=True):
             msg.insert('2.0', '\nTo update, close out of Monster Truck and run updater.exe.\n\n')
             msg.configure(state=tk.DISABLED)
             msg.pack(pady=(10,20))
-            button = tk.Button(top, text="Dismiss", command=top.destroy)
+            button = tk.Button(top, text="Dismiss", command=top.destroy,
+                               activebackground = button_pressed_color)
+            button.bind('<Enter>', on_hover)
+            button.bind('<Leave>', off_hover)
             button.pack()
 
 
@@ -145,7 +180,10 @@ def log_unhandled_exception(type, value, traceback):
     canvas.create_image(50,50,image=canvas.image)
 
     msg.pack()
-    button = tk.Button(top, text="Dismiss", command=top.destroy)
+    button = tk.Button(top, text="Dismiss", command=top.destroy,
+                       activebackground = button_pressed_color)
+    button.bind('<Enter>', on_hover)
+    button.bind('<Leave>', off_hover)
     button.pack()
 
 
@@ -197,7 +235,6 @@ def not_connected_message(window):
 
 
 def on_closing():
-    width, height = 100, 100
     top = tk.Toplevel()
     top.title('Exit')
     top.attributes('-topmost', True)
@@ -220,11 +257,17 @@ def on_closing():
     msg = tk.Label(top, text='Are you sure you want to exit?')
     msg.grid(row=0, column=0, columnspan=2)
 
-    cancelButton = tk.Button(top, text='Cancel', command=top.destroy)
+    cancelButton = tk.Button(top, text='Cancel', command=top.destroy,
+                             activebackground = button_pressed_color)
     cancelButton.grid(row=1, column=0)
+    cancelButton.bind('<Enter>', on_hover)
+    cancelButton.bind('<Leave>', off_hover)
 
-    okButton = tk.Button(top, text="Ok", command=exit)
+    okButton = tk.Button(top, text="Ok", command=exit,
+                         activebackground = button_pressed_color)
     okButton.grid(row=1, column=1)
+    okButton.bind('<Enter>', on_hover)
+    okButton.bind('<Leave>', off_hover)
 
 
 class App(tk.Tk):
@@ -235,15 +278,18 @@ class App(tk.Tk):
         s.theme_use('clam')
         self.report_callback_exception = log_unhandled_exception
         self.connection = connection
+
         self.menubar = tk.Menu(self)
+
         self.file_menu = tk.Menu(self.menubar, tearoff=0)
         self.file_menu.add_command(label='Check for Update', command=lambda: check_if_current(startup=False))
-        self.file_menu.add_command(label='Exit', command=exit)
+        self.file_menu.add_command(label='Exit', command=on_closing)
         self.menubar.add_cascade(label='File', menu=self.file_menu)
 
-        self.bank_menu = tk.Menu(self.menubar, tearoff=0)
-        self.bank_menu.add_command(label='Bank Details', command=lambda: BankDetails(self.connection, MainMenu))
-        self.menubar.add_cascade(label='Bank', menu=self.bank_menu)
+        self.edit_menu = tk.Menu(self.menubar, tearoff=0)
+        self.edit_menu.add_command(label='Edit Categories', command=lambda: EditCategories(self.connection, MainMenu))
+        self.edit_menu.add_command(label='Edit Bank Details', command=lambda: BankDetails(self.connection, MainMenu))
+        self.menubar.add_cascade(label='Edit', menu=self.edit_menu)
 
         self.configure(background='black', menu=self.menubar)
 
@@ -341,49 +387,73 @@ class MainMenu(tk.Frame):
 
         button_font = font.Font(family='Courier', size=15, weight='bold')
 
-        self.new_member_button = tk.Button(self, text='Members',
-                                           command=lambda: controller.show_frame(Members))
-        self.new_member_button['font'] = button_font
-        self.new_member_button.grid(row=1, column=0)
+        self.member_button = tk.Button(self, text='Members',
+                                           command=lambda: controller.show_frame(Members),
+                                           activebackground=button_pressed_color)
+        self.member_button['font'] = button_font
+        self.member_button.grid(row=1, column=0)
+        self.member_button.bind('<Enter>', on_hover)
+        self.member_button.bind('<Leave>', off_hover)
 
         self.new_invoice_button = tk.Button(self, text='New Invoice',
-                                            command=lambda: InvoiceWindow(connection, self))
+                                            command=lambda: InvoiceWindow(connection, self),
+                                            activebackground=button_pressed_color)
         self.new_invoice_button['font'] = button_font
         self.new_invoice_button.grid(row=2, column=0)
+        self.new_invoice_button.bind('<Enter>', on_hover)
+        self.new_invoice_button.bind('<Leave>', off_hover)
 
         self.new_expense_button = tk.Button(self, text='Add\nExpense',
-                                            command=lambda: ExpenseWindow(connection, self))
+                                            command=lambda: ExpenseWindow(connection, self),
+                                            activebackground=button_pressed_color)
         self.new_expense_button['font'] = button_font
         self.new_expense_button.grid(row=3, column=0)
+        self.new_expense_button.bind('<Enter>', on_hover)
+        self.new_expense_button.bind('<Leave>', off_hover)
 
-        self.new_expense_button = tk.Button(self, text='Add\nIncome',
-                                            command=lambda: IncomeWindow(connection, self))
-        self.new_expense_button['font'] = button_font
-        self.new_expense_button.grid(row=4, column=0)
+        self.new_income_button = tk.Button(self, text='Add\nIncome',
+                                           command=lambda: IncomeWindow(connection, self),
+                                           activebackground=button_pressed_color)
+        self.new_income_button['font'] = button_font
+        self.new_income_button.grid(row=4, column=0)
+        self.new_income_button.bind('<Enter>', on_hover)
+        self.new_income_button.bind('<Leave>', off_hover)
 
         self.cash_deposit_button = tk.Button(self, text='Cash Out/\nBank Deposit',
-                                              command=lambda: CashTransfers(connection, self))
+                                             command=lambda: CashTransfers(connection, self),
+                                             activebackground=button_pressed_color)
         self.cash_deposit_button['font'] = button_font
         self.cash_deposit_button.grid(row=5, column=0)
+        self.cash_deposit_button.bind('<Enter>', on_hover)
+        self.cash_deposit_button.bind('<Leave>', off_hover)
 
         self.auto_invoicer_button = tk.Button(self, text='Auto\nInvoicer',
                                               command=lambda: AutoInvoicing(connection,
                                                                             self, self.email_address,
                                                                             self.email_password,
                                                                             self.email_host,
-                                                                            self.email_port))
+                                                                            self.email_port),
+                                              activebackground=button_pressed_color)
         self.auto_invoicer_button['font'] = button_font
         self.auto_invoicer_button.grid(row=6, column=0)
+        self.auto_invoicer_button.bind('<Enter>', on_hover)
+        self.auto_invoicer_button.bind('<Leave>', off_hover)
 
         self.records_button = tk.Button(self, text='Committee\nReport',
-                                        command=lambda: ReportPeriod(self.connect, self))
+                                        command=lambda: ReportPeriod(self.connect, self),
+                                        activebackground=button_pressed_color)
         self.records_button['font'] = button_font
         self.records_button.grid(row=7, column=0)
+        self.records_button.bind('<Enter>', on_hover)
+        self.records_button.bind('<Leave>', off_hover)
 
-        self.records_button = tk.Button(self, text='Send Unsent\nInvoices',
-                                        command=self.send_unsent_invoices)
-        self.records_button['font'] = button_font
-        self.records_button.grid(row=8, column=0)
+        self.send_unsent_button = tk.Button(self, text='Send Unsent\nInvoices',
+                                            command=self.send_unsent_invoices,
+                                            activebackground=button_pressed_color)
+        self.send_unsent_button['font'] = button_font
+        self.send_unsent_button.grid(row=8, column=0)
+        self.send_unsent_button.bind('<Enter>', on_hover)
+        self.send_unsent_button.bind('<Leave>', off_hover)
 
         invoice_table_label = tk.Label(self, text='Unpaid Invoices')
         invoice_table_label.config(font="Courier, 14")
@@ -643,12 +713,14 @@ class MainMenu(tk.Frame):
             messagebox.showwarning('Unknown Error',
                                    f'An unknown error occurred and has been logged. Report to developer.',
                                    parent=self)
+
     @activity_log
     def on_double_click_invoice(self, a):
         if self.connect != None:
             item = self.invoices_table.selection()
             invoice_no = self.invoices_table.item(item, 'text')
-            Receipt_window(invoice_no, self.connect, self, self.email_address, self.email_password, self.email_host, self.email_port)
+            if invoice_no != '':
+                Receipt_window(invoice_no, self.connect, self, self.email_address, self.email_password, self.email_host, self.email_port)
 
     @activity_log
     def on_double_click_history(self, a):
@@ -656,10 +728,10 @@ class MainMenu(tk.Frame):
             item = self.history_table.selection()
             receipt_no = self.history_table.item(item, 'value')
             receipt_type = self.history_table.item(item, 'text')
-            HistoryWindow(receipt_no[0], self.connect, self, receipt_type, self.email_address, self.email_password, self.email_host, self.email_port)
+            if receipt_type != '':
+                HistoryWindow(receipt_no[0], self.connect, self, receipt_type, self.email_address, self.email_password, self.email_host, self.email_port)
 
-    def update_balance(self):
-
+    def money_in_out_labels(self):
         if self.connect != None:
             self.balances = self.transaction_history[0][-2:]
             self.month_in = self.connect.query('select '
@@ -738,7 +810,6 @@ class MainMenu(tk.Frame):
                                                 f'Bank Balance: ${self.balances[1]}',
                                            font='courier 15 bold')
         self.cash_balance_label.grid(row=6, column=1)
-
         current_month = datetime.today().month
         if current_month == 1:
             self.current_month = 'January'
@@ -765,88 +836,86 @@ class MainMenu(tk.Frame):
         elif current_month == 12:
             self.current_month = 'December'
 
-        self.money_in_out_label = tk.Label(self, text=f'{self.current_month} Money In: ${self.month_in}\n{self.current_month} Money Out: ${self.month_out}',
-                                               font='courier 15 bold')
+        self.money_in_out_label = tk.Label(self,
+                                           text=f'{self.current_month} Money In: ${self.month_in}\n{self.current_month} Money Out: ${self.month_out}',
+                                           font='courier 15 bold')
         self.money_in_out_label.grid(row=6, column=2)
-
-
         if self.month_in is None:
             self.month_in = 0
         if self.month_out is None:
             self.month_out = 0
         self.money_in_out_label.configure(text=f'{self.current_month} Money In: ${self.month_in}\n{self.current_month} Money Out: ${self.month_out}',
                                                   font='courier 15 bold')
+
+    def end_of_month_balance_graph(self):
         if self.connect != None:
-            self.connect.insert('set @cashSum := 0;')
-            self.connect.insert('set @bankSum := 0;')
-            self.connect.insert('drop temporary table if exists last_payment_of_month;')
-            self.connect.insert(
-                'create temporary table last_payment_of_month '
-                'select distinct(max(payment_datetime)) '
-                'as '
-                'payment_datetime '
-                'from '
-                '((select payment_datetime from invoice_receipt) '
-                'union all '
-                '(select payment_datetime from expense_receipt))'
-                ' as hista '
-                'group by DATE_FORMAT(payment_datetime, "%Y-%m");')
-
             self.end_of_month_balance = self.connect.query(
-                'select distinct(DATE_FORMAT(payment_datetime, "%Y-%m")), '
-                'cash_balance + bank_balance '
-                'from '
-                '(select payment_datetime, cash_amount, transfer_amount, (@cashSum := @cashSum + cash_amount)'
-                ' as cash_balance, '
-                '(@bankSum := @bankSum + transfer_amount) as bank_balance '
-                'from '
-                '((select invoice_no as n, payment_datetime, cash_amount, transfer_amount from invoice_receipt) '
-                'union all	'
-                '(select expense_receipt_no as n, payment_datetime, cash_amount, transfer_amount from expense_receipt) '
-                'union all '
-                '(select income_receipt_no as n, payment_datetime, cash_amount, transfer_amount from income_receipt) ) '
-                'as hist '
-                'order by payment_datetime ) '
-                'as i  '
-                'where payment_datetime in (select distinct(payment_datetime) from last_payment_of_month) '
-                'and '
-                'payment_datetime between now() - INTERVAL 6 MONTH and NOW() '
-                'order by payment_datetime desc;')
+                'select date_format(x.payment_datetime, "%Y-%m") , x.cash_balance, x.bank_balance '
+                'from payment_history as x join ('
+                '   select max(payment_datetime) as payment_datetime from payment_history as y '
+                '   group by year(y.payment_datetime), month(y.payment_datetime))'
+                '   as z using (payment_datetime) where n != 30000 group by payment_datetime '
+                '   order by payment_datetime desc')
+            self.clean_monthly_balances()
         else:
-            self.end_of_month_balance = [(datetime.today() - relativedelta(months=i),0) for i in range(0,6)]
+            self.cleaned_balances = [(datetime.today() - relativedelta(months=i),0,0) for i in range(0,6)]
 
-        months = [c[0] for c in self.end_of_month_balance]
-        if len(months) < 6:
-            last_month = datetime.strptime(months[-1], '%Y-%m')
-            zero_months = 6 - len(months)
-            for i in range(1, zero_months+1):
-                new_last = last_month - relativedelta(months=i)
-                new_last = new_last.strftime("%Y-%m")
-                months.append(new_last)
+
+
+        months = [row[0] for row in self.cleaned_balances]
         months.reverse()
-        balances = [c[1] for c in self.end_of_month_balance]
-        if len(balances) < 6:
-            zero_months = 6 - len(balances)
-            for i in range(zero_months):
-                balances.append(0)
-        balances.reverse()
+        cash_balances = [row[1] for row in self.cleaned_balances]
+        cash_balances.reverse()
+        bank_balances = [row[2] for row in self.cleaned_balances]
+        bank_balances.reverse()
+        total_balances = [row[1] + row[2] for row in self.cleaned_balances]
+        total_balances.reverse()
+
         f = Figure(figsize=(6, 2))
         f.suptitle('Monthly Closing Balances')
         f.set_facecolor((0.94, 0.94, 0.93))
-        a = f.add_subplot(111, ylim=(0, float(max(balances))+100))
-        a.bar(months, balances)
+        a = f.add_subplot(111, ylim=(0, float(max(total_balances)) + 100))
+        a.bar(months, total_balances, label='Total', color='#1946eb')
+        a.plot(months, cash_balances, color='#f15000', label='Cash', marker='.')
+        a.plot(months, bank_balances, color='black', label='Bank', marker='.')
 
         a.set_ylabel('Dollars ($)')
+        major_spacing = len(months) // 5
+        print(major_spacing)
+        if major_spacing > 1:
+            a.xaxis.set_major_locator(MultipleLocator(major_spacing))
+            a.xaxis.set_minor_locator(MultipleLocator(1))
+
         a.tick_params(axis='x', labelsize=7)
+        a.tick_params(axis='x', which='major', length=4)
+        a.tick_params(axis='x', which='minor', length=2)
         a.tick_params(axis='y', labelsize=7)
+        a.legend(ncol=3, fontsize=7)
+
         a.set_facecolor((0.94, 0.94, 0.93))
+
         canvas = FigureCanvasTkAgg(f, self)
         canvas.get_tk_widget().grid(row=7, column=1, rowspan=2, columnspan=2, sticky='n')
+        #
+        # plt.figure(dpi=200)
+        # plt.bar(months, balances, color='grey')
+        # plt.xticks(rotation=30)
+        # plt.savefig('./config/bar_closing')
 
-        plt.figure(dpi=200)
-        plt.bar(months, balances, color='grey')
-        plt.xticks(rotation=30)
-        plt.savefig('./config/bar_closing')
+    def clean_monthly_balances(self):
+        self.cleaned_balances = []
+        for i in range(len(self.end_of_month_balance) - 1):
+            row = self.end_of_month_balance[i]
+            current_row_month = datetime.strptime(row[0], "%Y-%m")
+            next_row_month = datetime.strptime(self.end_of_month_balance[i + 1][0], "%Y-%m")
+            while current_row_month != next_row_month:
+                self.cleaned_balances.append((current_row_month.strftime("%Y-%m"), row[1], row[2]))
+                current_row_month = current_row_month - relativedelta(months=1)
+        self.cleaned_balances.append(self.end_of_month_balance[-1])
+
+    def update_balance(self):
+        self.money_in_out_labels()
+        self.end_of_month_balance_graph()
 
 
 class Members(tk.Frame):
@@ -931,23 +1000,38 @@ class Members(tk.Frame):
 
         button_font = font.Font(family='Courier', size=20, weight='bold')
 
-        self.new_member_button = tk.Button(self, text='New Member', command=lambda: NewMemberPage(connection, self))
+        self.new_member_button = tk.Button(self, text='New Member', command=lambda: NewMemberPage(connection, self),
+                                           activebackground=button_pressed_color)
         self.new_member_button['font'] = button_font
         self.new_member_button.grid(row=2, column=1, sticky='N', pady=5)
+        self.new_member_button.bind('<Enter>', on_hover)
+        self.new_member_button.bind('<Leave>', off_hover)
 
-        self.main_menu_button = tk.Button(self, text='Main Menu', command=lambda: controller.show_frame(MainMenu))
+        self.main_menu_button = tk.Button(self, text='Main Menu', command=lambda: controller.show_frame(MainMenu),
+                                          activebackground=button_pressed_color)
         self.main_menu_button['font'] = button_font
         self.main_menu_button.grid(row=2, column=0, sticky='N', pady=5)
+        self.main_menu_button.bind('<Enter>', on_hover)
+        self.main_menu_button.bind('<Leave>', off_hover)
 
-        self.export_button = tk.Button(self, text='Export Members Info', command=self.exporter)
+
+        self.export_button = tk.Button(self, text='Export Members Info', command=self.exporter,
+                                       activebackground=button_pressed_color)
         self.export_button['font'] = button_font
         self.export_button.grid(row=2, column=2, sticky='N', pady=5)
+        self.export_button.bind('<Enter>', on_hover)
+        self.export_button.bind('<Leave>', off_hover)
 
-        self.toggle_active_button = tk.Button(self, text='Show Inactive Members', command=self.toggle_active)
+
+        self.toggle_active_button = tk.Button(self, text='Show Inactive Members', command=self.toggle_active,
+                                              activebackground=button_pressed_color)
         self.toggle_active_button['font'] = button_font
         self.toggle_active_button.grid(row=2, column=3, sticky='N', pady=5)
+        self.toggle_active_button.bind('<Enter>', on_hover)
+        self.toggle_active_button.bind('<Leave>', off_hover)
 
         self.showing_active = True
+
 
     @activity_log
     def toggle_active(self):
@@ -1223,11 +1307,17 @@ class EditMember(tk.Tk):
         member_status_Option = tk.OptionMenu(self, self.member_status_var, *member_status)
         member_status_Option.grid(column=1, row=12, sticky='W', padx=10, pady=5)
 
-        cancel = tk.Button(self, text='Cancel', width=6, command=self.destroy)
+        cancel = tk.Button(self, text='Cancel', width=6, command=self.destroy,
+                           activebackground=button_pressed_color)
         cancel.grid(column=0, row=13)
+        cancel.bind('<Enter>', on_hover)
+        cancel.bind('<Leave>', off_hover)
 
-        submit = tk.Button(self, text='Submit', width=6, command=self.editMemberSubmit)
+        submit = tk.Button(self, text='Submit', width=6, command=self.editMemberSubmit,
+                           activebackground=button_pressed_color)
         submit.grid(column=1, row=13)
+        submit.bind('<Enter>', on_hover)
+        submit.bind('<Leave>', off_hover)
 
         self.attributes("-topmost", True)
 
@@ -1248,17 +1338,17 @@ class EditMember(tk.Tk):
         try:
             self.databaseConnection.insert(f'update members'
                                  f' set '
-                                 f'member_fname = "{fname}", '
-                                 f'member_lname = "{lname}", '
-                                 f'partner_name = "{partner}", '
-                                 f'street_address = "{address}", '
-                                 f'suburb = "{suburb}", '
-                                 f'state = "{state}", '
-                                 f'postcode = "{postcode}", '
-                                 f'home_phone = "{home_phone}", '
-                                 f'mobile_phone = "{mobile}", '
-                                 f'email = "{email}", '
-                                 f'member_status = "{status}" '
+                                 f'member_fname = "{self.databaseConnection.sanitise(fname)}", '
+                                 f'member_lname = "{self.databaseConnection.sanitise(lname)}", '
+                                 f'partner_name = "{self.databaseConnection.sanitise(partner)}", '
+                                 f'street_address = "{self.databaseConnection.sanitise(address)}", '
+                                 f'suburb = "{self.databaseConnection.sanitise(suburb)}", '
+                                 f'state = "{self.databaseConnection.sanitise(state)}", '
+                                 f'postcode = "{self.databaseConnection.sanitise(postcode)}", '
+                                 f'home_phone = "{self.databaseConnection.sanitise(home_phone)}", '
+                                 f'mobile_phone = "{self.databaseConnection.sanitise(mobile)}", '
+                                 f'email = "{self.databaseConnection.sanitise(email)}", '
+                                 f'member_status = "{self.databaseConnection.sanitise(status)}" '
                                  f'where '
                                  f'member_no = {self.member_no}')
             self.databaseConnection.commit()
@@ -1305,7 +1395,7 @@ class InvoiceWindow(tk.Tk):
         member_names = [m[0] for m in self.members]
         self.members = dict(self.members)
         if self.databaseConnection != None:
-            self.items = self.databaseConnection.query("select item_description, item_code, item_value from item")
+            self.items = self.databaseConnection.query("select item_description, item_code, item_value from item where hidden = 0;")
         else:
             self.items = []
         item_desc = [c[0] for c in self.items]
@@ -1347,10 +1437,18 @@ class InvoiceWindow(tk.Tk):
         item_qty_field = tk.Entry(self, textvariable=self.item_qty_var)
         item_qty_field.grid(row=2, column=2)
 
-        item_add_button = tk.Button(self, text='+', command=self.add_item_command)
+        item_add_button = tk.Button(self, text='+', command=self.add_item_command,
+                                    activebackground = button_pressed_color)
         item_add_button.grid(row=2, column=3)
-        item_remove_button = tk.Button(self, text='-', command=self.remove_item_command)
+        item_add_button.bind('<Enter>', on_hover)
+        item_add_button.bind('<Leave>', off_hover)
+
+
+        item_remove_button = tk.Button(self, text='-', command=self.remove_item_command,
+                                       activebackground = button_pressed_color)
         item_remove_button.grid(row=2, column=4)
+        item_remove_button.bind('<Enter>', on_hover)
+        item_remove_button.bind('<Leave>', off_hover)
 
         invoice_table(self, row=3, columnspan=5, pady=10)
 
@@ -1388,11 +1486,17 @@ class InvoiceWindow(tk.Tk):
 
         self.invoice_table.bind('<ButtonRelease-1>', self.select_item)
 
-        submit_invoice_button = tk.Button(self, text='Submit Invoice', command=self.submit_invoice_command)
+        submit_invoice_button = tk.Button(self, text='Submit Invoice', command=self.submit_invoice_command,
+                                          activebackground = button_pressed_color)
         submit_invoice_button.grid(row=5, column=2, pady=self.winfo_screenheight()*0.005)
+        submit_invoice_button.bind('<Enter>', on_hover)
+        submit_invoice_button.bind('<Leave>', off_hover)
 
-        cancel = tk.Button(self, text='Cancel', command=self.destroy)
+
+        cancel = tk.Button(self, text='Cancel', command=self.destroy, activebackground = button_pressed_color)
         cancel.grid(row=5, column=1)
+        cancel.bind('<Enter>', on_hover)
+        cancel.bind('<Leave>', off_hover)
 
         self.items_var.trace('w', self.set_price_qty)
 
@@ -1428,6 +1532,8 @@ class InvoiceWindow(tk.Tk):
             price_string = '$' + str(self.total)
             self.invoice_total_var.set(price_string)
             self.attributes("-topmost", True)
+        else:
+            messagebox.showwarning('Member not selected', 'A member must be selected first.', parent=self)
 
     @activity_log
     def remove_item_command(self):
@@ -1644,11 +1750,17 @@ class NewMemberPage(tk.Tk):
         member_status_Option = tk.OptionMenu(self, self.member_status_var, *member_status)
         member_status_Option.grid(column=1, row=12, sticky='W', padx=10, pady=5)
 
-        cancel = tk.Button(self, text='Cancel', width=6, command=self.destroy)
+        cancel = tk.Button(self, text='Cancel', width=6, command=self.destroy, activebackground = button_pressed_color)
         cancel.grid(column=0, row=13)
+        cancel.bind('<Enter>', on_hover)
+        cancel.bind('<Leave>', off_hover)
 
-        submit = tk.Button(self, text='Submit', width=6, command=self.newMemberSubmit)
+
+        submit = tk.Button(self, text='Submit', width=6, command=self.newMemberSubmit,
+                           activebackground=button_pressed_color)
         submit.grid(column=1, row=13)
+        submit.bind('<Enter>', on_hover)
+        submit.bind('<Leave>', off_hover)
 
         self.attributes("-topmost", True)
 
@@ -1716,17 +1828,17 @@ class NewMemberPage(tk.Tk):
                                              f'email, '
                                              f'member_status) '
                                              f'values ( '
-                                             f'"{fname}", '
-                                             f'"{lname}", '
-                                             f'"{partner}", '
-                                             f'"{address}", '
-                                             f'"{suburb}", '
-                                             f'"{state}", '
-                                             f'"{postcode}", '
-                                             f'"{home_phone}", '
-                                             f'"{mobile}", '
-                                             f'"{email}", '
-                                             f'"{status}")')
+                                             f'"{self.dbconnection.sanitise(fname)}", '
+                                             f'"{self.dbconnection.sanitise(lname)}", '
+                                             f'"{self.dbconnection.sanitise(partner)}", '
+                                             f'"{self.dbconnection.sanitise(address)}", '
+                                             f'"{self.dbconnection.sanitise(suburb)}", '
+                                             f'"{self.dbconnection.sanitise(state)}", '
+                                             f'"{self.dbconnection.sanitise(postcode)}", '
+                                             f'"{self.dbconnection.sanitise(home_phone)}", '
+                                             f'"{self.dbconnection.sanitise(mobile)}", '
+                                             f'"{self.dbconnection.sanitise(email)}", '
+                                             f'"{self.dbconnection.sanitise(status)}")')
                 except Exception as e:
                     self.dbconnection.rollback()
                     print('Error Logged')
@@ -1738,7 +1850,7 @@ class NewMemberPage(tk.Tk):
                     self.member_page.update_window()
                     self.destroy()
             else:
-                messagebox.showwarning('Format Error', f'The following fields need to be numeric:\n\n{error_str}')
+                messagebox.showwarning('Format Error', f'The following fields need to be numeric:\n\n{error_str}', parent=self)
         else:
             not_connected_message(self)
 
@@ -1866,15 +1978,22 @@ class HistoryWindow(tk.Tk):
                     self.total_label.grid(row=6, columnspan=2, sticky='w', padx=10)
 
                     if self.receipt_data["email_sent"] == 'No':
-                        self.send_invoice_button = tk.Button(self, text='Send Receipt', command=self.send_receipt)
+                        self.send_invoice_button = tk.Button(self, text='Send Receipt', command=self.send_receipt,
+                                                             activebackground = button_pressed_color)
+                        self.send_invoice_button.bind('<Enter>', on_hover)
+                        self.send_invoice_button.bind('<Leave>', off_hover)
                         button_font = font.Font(family='Courier', size=15, weight='bold')
                         self.send_invoice_button['font'] = button_font
                         self.send_invoice_button.grid(row=6, column=2)
                     else:
-                        self.send_invoice_button = tk.Button(self, text='Resend Receipt', command=self.send_receipt)
+                        self.send_invoice_button = tk.Button(self, text='Resend Receipt', command=self.send_receipt,
+                                                             activebackground = button_pressed_color)
                         button_font = font.Font(family='Courier', size=15, weight='bold')
                         self.send_invoice_button['font'] = button_font
                         self.send_invoice_button.grid(row=6, column=2)
+                        self.send_invoice_button.bind('<Enter>', on_hover)
+                        self.send_invoice_button.bind('<Leave>', off_hover)
+
 
                     # self.receipt_table = Treeview(self)
                     # self.receipt_table["columns"] = ('item_desc', 'unit_price', 'qty', 'subtotal')
@@ -1899,17 +2018,28 @@ class HistoryWindow(tk.Tk):
                     for row in self.invoice_line:
                         self.invoice_table.insert('', 'end', text=row[0], values=row[1:])
 
-                    self.refund_button = tk.Button(self, text='Refund', command=self.refund_invoice)
+                    self.refund_button = tk.Button(self, text='Refund', command=self.refund_invoice,
+                                                   activebackground = button_pressed_color)
                     self.refund_button['font'] = button_font
                     self.refund_button.grid(row=8, column=0, pady=10)
+                    self.refund_button.bind('<Enter>', on_hover)
+                    self.refund_button.bind('<Leave>', off_hover)
+                    activebackground = button_pressed_color
 
-                    self.delete_button = tk.Button(self, text='Delete', command=self.delete_receipt)
+                    self.delete_button = tk.Button(self, text='Delete', command=self.delete_receipt,
+                                                   activebackground = button_pressed_color)
                     self.delete_button['font'] = button_font
                     self.delete_button.grid(row=8, column=1, pady=10)
+                    self.delete_button.bind('<Enter>', on_hover)
+                    self.delete_button.bind('<Leave>', off_hover)
+
 
                     self.view_receipt_button = tk.Button(self, text='View Receipt', command=self.view_receipt)
                     self.view_receipt_button['font'] = button_font
                     self.view_receipt_button.grid(row=8, column=2, pady=10)
+                    self.view_receipt_button.bind('<Enter>', on_hover)
+                    self.view_receipt_button.bind('<Leave>', off_hover)
+
 
                     self.attributes("-topmost", True)  # #
                 else:
@@ -1979,8 +2109,11 @@ class HistoryWindow(tk.Tk):
             self.notes.insert('1.0', f'{income_data[3]}')
             self.notes.grid(row=6, columnspan=3, pady=(0, 20))
 
-            self.delete_button = tk.Button(self, text='Delete', command=self.delete_income)
+            self.delete_button = tk.Button(self, text='Delete', command=self.delete_income,
+                                           activebackground = button_pressed_color)
             self.delete_button.grid(row=7, columnspan=3)
+            self.delete_button.bind('<Enter>', on_hover)
+            self.delete_button.bind('<Leave>', off_hover)
 
             self.attributes("-topmost", True)
         # cash out or deposit
@@ -2034,9 +2167,12 @@ class HistoryWindow(tk.Tk):
 
             self.attributes("-topmost", True)
             button_font = font.Font(family='Courier', size=15, weight='bold')
-            self.delete_transfer_button = tk.Button(self, text='Delete', command=self.delete_transfer_record)
+            self.delete_transfer_button = tk.Button(self, text='Delete', command=self.delete_transfer_record,
+                                                    activebackground = button_pressed_color)
             self.delete_transfer_button['font'] = button_font
             self.delete_transfer_button.grid(row=4, columnspan=3)
+            self.delete_transfer_button.bind('<Enter>', on_hover)
+            self.delete_transfer_button.bind('<Leave>', off_hover)
         # expense history
         elif self.receipt_no > 70000 and self.receipt_no < 90000:
             x = self.winfo_screenwidth()
@@ -2097,8 +2233,11 @@ class HistoryWindow(tk.Tk):
             self.notes.insert('1.0', f'{expense_data[3]}')
             self.notes.grid(row=6, columnspan=3, pady=(0,20))
 
-            self.delete_button = tk.Button(self, text='Delete', command=self.delete_expense)
+            self.delete_button = tk.Button(self, text='Delete', command=self.delete_expense,
+                                           activebackground = button_pressed_color)
             self.delete_button.grid(row=7, columnspan=3)
+            self.delete_button.bind('<Enter>', on_hover)
+            self.delete_button.bind('<Leave>', off_hover)
 
             self.attributes("-topmost", True)
         # refunds history
@@ -2212,15 +2351,21 @@ class HistoryWindow(tk.Tk):
                     self.total_label.grid(row=6, columnspan=2, sticky='w', padx=10)
 
                     if self.receipt_data["email_sent"] == 'no':
-                        self.send_invoice_button = tk.Button(self, text='Send Refund', command=self.send_refund)
+                        self.send_invoice_button = tk.Button(self, text='Send Refund', command=self.send_refund,
+                                                             activebackground = button_pressed_color)
                         button_font = font.Font(family='Courier', size=15, weight='bold')
                         self.send_invoice_button['font'] = button_font
                         self.send_invoice_button.grid(row=6, column=2)
+                        self.send_invoice_button.bind('<Enter>', on_hover)
+                        self.send_invoice_button.bind('<Leave>', off_hover)
                     else:
-                        self.send_invoice_button = tk.Button(self, text='Resend Refund', command=self.send_refund)
+                        self.send_invoice_button = tk.Button(self, text='Resend Refund', command=self.send_refund,
+                                                             activebackground = button_pressed_color)
                         button_font = font.Font(family='Courier', size=15, weight='bold')
                         self.send_invoice_button['font'] = button_font
                         self.send_invoice_button.grid(row=6, column=2)
+                        self.send_invoice_button.bind('<Enter>', on_hover)
+                        self.send_invoice_button.bind('<Leave>', off_hover)
 
                     # self.receipt_table = Treeview(self)
                     # self.receipt_table["columns"] = ('item_desc', 'unit_price', 'qty', 'subtotal')
@@ -2346,6 +2491,7 @@ class HistoryWindow(tk.Tk):
                 self.destroy()
                 HistoryWindow(self.receipt_no, self.databaseConnection, self.main_menu, self.receipt_type, self.email_address, self.email_password, self.email_host, self.email_port)
             else:
+                logger.exception(sender.return_error())
                 messagebox.showerror('Email failure', 'Email failed to send.', parent=self)
         else:
             print('Cancelled')
@@ -2376,6 +2522,7 @@ class HistoryWindow(tk.Tk):
                 HistoryWindow(self.receipt_no, self.databaseConnection, self.main_menu, self.receipt_type,
                               self.email_address, self.email_password, self.email_host, self.email_port)
             else:
+                logger.exception(sender.return_error())
                 messagebox.showerror('Email failure', 'Email failed to send', parent=self)
         else:
             print('Cancelled')
@@ -2420,11 +2567,18 @@ class RefundCashOrTransfer(tk.Tk):
                                          variable=self.refund_type_variable, value='transfer', anchor='s')
         transfer_button.grid(row=1, column=2)
 
-        self.cancel_button = tk.Button(self, text='Cancel', command=self.destroy)
+        self.cancel_button = tk.Button(self, text='Cancel', command=self.destroy,
+                                       activebackground=button_pressed_color)
         self.cancel_button.grid(row=2, column=0, sticky='E')
+        self.cancel_button.bind('<Enter>', on_hover)
+        self.cancel_button.bind('<Leave>', off_hover)
 
-        self.submit_button = tk.Button(self, text='Submit', command=self.submit_refund)
+
+        self.submit_button = tk.Button(self, text='Submit', command=self.submit_refund,
+                                       activebackground = button_pressed_color)
         self.submit_button.grid(row=2, column=2, sticky='W')
+        self.submit_button.bind('<Enter>', on_hover)
+        self.submit_button.bind('<Leave>', off_hover)
 
     @activity_log
     def submit_refund(self):
@@ -2576,24 +2730,6 @@ class Receipt_window(tk.Tk):
 
         self.title('Unpaid Invoice')
 
-        # self.invoice_table = Treeview(self)
-        #
-        # self.invoice_table["columns"] = ('item_desc', 'unit_price', 'qty', 'subtotal')
-        # self.invoice_table.column('#0', width=round(self.winfo_screenwidth() * 0.05), minwidth=50, stretch=tk.NO)
-        # self.invoice_table.column('item_desc', width=round(self.winfo_screenwidth() * 0.12), minwidth=50, stretch=tk.NO)
-        # self.invoice_table.column('unit_price', width=round(self.winfo_screenwidth() * 0.07), minwidth=50,
-        #                           stretch=tk.NO)
-        # self.invoice_table.column('qty', width=round(self.winfo_screenwidth() * 0.06), minwidth=50, stretch=tk.NO)
-        # self.invoice_table.column('subtotal', width=round(self.winfo_screenwidth() * 0.06), minwidth=50, stretch=tk.NO)
-        #
-        # self.invoice_table.heading('#0', text="Item Code")
-        # self.invoice_table.heading('item_desc', text="Item Description")
-        # self.invoice_table.heading('unit_price', text="Unit Price")
-        # self.invoice_table.heading('qty', text="QTY")
-        # self.invoice_table.heading('subtotal', text="Sub Total")
-        #
-        # self.invoice_table.grid(row=4, columnspan=3)
-
         invoice_table(self, row=4, columnspan=3)
 
         for row in self.invoice_lines:
@@ -2609,15 +2745,21 @@ class Receipt_window(tk.Tk):
         self.issue_date_label.grid(row=2, columnspan=3, sticky='nw', padx=10)
 
         if self.invoice_data[-1] == 'No':
-            self.send_invoice_button = tk.Button(self, text='Send Invoice', command=self.send_invoice)
+            self.send_invoice_button = tk.Button(self, text='Send Invoice', command=self.send_invoice,
+                                                 activebackground = button_pressed_color)
             button_font = font.Font(family='Courier', size=15, weight='bold')
             self.send_invoice_button['font'] = button_font
             self.send_invoice_button.grid(row=3, column=2)
+            self.send_invoice_button.bind('<Enter>', on_hover)
+            self.send_invoice_button.bind('<Leave>', off_hover)
         else:
-            self.send_invoice_button = tk.Button(self, text='Resend Invoice', command=self.send_invoice)
+            self.send_invoice_button = tk.Button(self, text='Resend Invoice', command=self.send_invoice,
+                                                 activebackground = button_pressed_color)
             button_font = font.Font(family='Courier', size=15, weight='bold')
             self.send_invoice_button['font'] = button_font
             self.send_invoice_button.grid(row=3, column=2)
+            self.send_invoice_button.bind('<Enter>', on_hover)
+            self.send_invoice_button.bind('<Leave>', off_hover)
 
         self.invoice_sent_label = tk.Label(self, text=f'Invoice Sent: {self.invoice_data[-1]} ', font='Courier 15 bold')
         self.invoice_sent_label.grid(row=3, columnspan=3, sticky='nw', padx=10)
@@ -2627,13 +2769,21 @@ class Receipt_window(tk.Tk):
 
         button_font = font.Font(family='Courier', size=20, weight='bold')
 
-        self.delete_invoice_button = tk.Button(self, text='Delete Invoice', command=self.delete_invoice, width=18)
+        self.delete_invoice_button = tk.Button(self, text='Delete Invoice', command=self.delete_invoice, width=18,
+                                               activebackground = button_pressed_color)
         self.delete_invoice_button['font'] = button_font
         self.delete_invoice_button.grid(row=5, column=0)
+        self.delete_invoice_button.bind('<Enter>', on_hover)
+        self.delete_invoice_button.bind('<Leave>', off_hover)
 
-        self.issue_receipt_button = tk.Button(self, text='Issue Receipt', command=lambda: ReceiptCashOrTransfer(self.invoice_data[2], self.invoice_no, connection, self, self.main_menu, self.email_address, self.email_password, self.email_host, self.email_port), width=18)
+        self.issue_receipt_button = tk.Button(self, text='Issue Receipt',
+                                              command=lambda: ReceiptCashOrTransfer(self.invoice_data[2], self.invoice_no, connection, self, self.main_menu, self.email_address, self.email_password, self.email_host, self.email_port),
+                                              width=18,
+                                              activebackground = button_pressed_color)
         self.issue_receipt_button['font'] = button_font
         self.issue_receipt_button.grid(row=5, column=1, padx=10)
+        self.issue_receipt_button.bind('<Enter>', on_hover)
+        self.issue_receipt_button.bind('<Leave>', off_hover)
 
         self.attributes("-topmost", True)
 
@@ -2678,6 +2828,7 @@ class Receipt_window(tk.Tk):
                 self.destroy()
                 Receipt_window(self.invoice_no, self.databaseConnection, self.main_menu, self.email_address, self.email_password, self.email_host, self.email_port)
             else:
+                logger.exception(sender.return_error())
                 messagebox.showerror('Email Failed', 'Invoice failed to be sent. Check email \ncredentials are correct.', parent=self)
 
         else:
@@ -2732,13 +2883,19 @@ class ReceiptCashOrTransfer(tk.Tk):
 
         button_font = font.Font(family='Courier', size=20, weight='bold')
 
-        self.cancel_button = tk.Button(self, text='Cancel', command=self.cancel_receipt)
+        self.cancel_button = tk.Button(self, text='Cancel', command=self.cancel_receipt,
+                                       activebackground = button_pressed_color)
         self.cancel_button['font'] = button_font
         self.cancel_button.grid(row=4, column=0, pady=5)
+        self.cancel_button.bind('<Enter>', on_hover)
+        self.cancel_button.bind('<Leave>', off_hover)
 
-        self.submit_button = tk.Button(self, text='Submit', command=self.submit_receipt)
+        self.submit_button = tk.Button(self, text='Submit', command=self.submit_receipt,
+                                       activebackground = button_pressed_color)
         self.submit_button['font'] = button_font
         self.submit_button.grid(row=4, column=1, pady=5)
+        self.submit_button.bind('<Enter>', on_hover)
+        self.submit_button.bind('<Leave>', off_hover)
 
     def cancel_receipt(self):
         self.destroy()
@@ -2859,6 +3016,7 @@ class ReceiptCashOrTransfer(tk.Tk):
                 f'update invoice_receipt set receipt_sent = "Yes" where invoice_receipt_no = {self.current_receipt_no}')
             messagebox.showinfo('Receipt Sent', 'Receipt successfully sent.')
         else:
+            logger.exception(sender.return_error())
             messagebox.showerror('Email Failed',
                                  'Receipt failed to be sent. Check email \ncredentials are correct.',
                                  parent=self.main_menu)
@@ -2900,7 +3058,7 @@ class ExpenseWindow(tk.Tk):
 
         if self.databaseConnection != None:
             self.expenses = self.databaseConnection.query(
-                "select expense_description, expense_id from expense where expense_id != 1;")
+                "select expense_description, expense_id from expense where expense_id != 1 and hidden = 0;")
         else:
             self.expenses = []
 
@@ -2940,11 +3098,17 @@ class ExpenseWindow(tk.Tk):
         self.note = tk.Text(self, width=50, height=7)
         self.note.grid(row=6, columnspan=2, padx=10, pady=10)
 
-        cancel = tk.Button(self, text='Cancel', command=self.destroy)
+        cancel = tk.Button(self, text='Cancel', command=self.destroy,
+                           activebackground = button_pressed_color)
         cancel.grid(row=7, column=0, pady=10)
+        cancel.bind('<Enter>', on_hover)
+        cancel.bind('<Leave>', off_hover)
 
-        button = tk.Button(self, text='Submit', command=self.submit)
+        button = tk.Button(self, text='Submit', command=self.submit,
+                           activebackground = button_pressed_color)
         button.grid(row=7, column=1, pady=10)
+        button.bind('<Enter>', on_hover)
+        button.bind('<Leave>', off_hover)
 
         self.expense_var.trace('w', self.create_new_category)
         self.new_cat_exists = 0
@@ -2999,11 +3163,12 @@ class ExpenseWindow(tk.Tk):
                         if self.expense_var.get() == '---- New Category ----':
                             self.insert_new_cat()
                             self.expense_id = self.current_expense_cat_no
+                        else:
+                            self.expense_id = self.expense_dict[self.expense_var.get()]
                         if date == datetime.today().strftime(format="%d/%m/%Y"):
                             date_field = 'now()'
                         else:
-                            date_field = 'str_to_date("{date}","%d/%m/%Y")'
-                        self.expense_id = self.expense_dict[self.expense_var.get()]
+                            date_field = f'str_to_date("{date}","%d/%m/%Y")'
                         self.databaseConnection.insert(f'insert into '
                                                        f'expense_receipt '
                                                        f'(expense_receipt_no, '
@@ -3047,7 +3212,7 @@ class ExpenseWindow(tk.Tk):
                                        f'expense_description) '
                                        f'values '
                                        f'({self.current_expense_cat_no}, '
-                                       f'"{self.new_category_var.get()}");')
+                                       f'"{self.databaseConnection.sanitise(self.new_category_var.get())}");')
         # self.databaseConnection.commit()
 
 
@@ -3085,7 +3250,7 @@ class IncomeWindow(tk.Tk):
         self.title('Add Income')
         if self.databaseConnection != None:
             self.incomes = self.databaseConnection.query(
-                "select income_description, income_id from income where income_id != 1;")
+                "select income_description, income_id from income where income_id != 1 and hidden = 0;")
         else:
             self.incomes = []
 
@@ -3125,11 +3290,19 @@ class IncomeWindow(tk.Tk):
         self.note = tk.Text(self, width=50, height=7)
         self.note.grid(row=6, columnspan=2, padx=10, pady=10)
 
-        cancel = tk.Button(self, text='Cancel', command=self.destroy)
+        cancel = tk.Button(self, text='Cancel', command=self.destroy,
+                           activebackground=button_pressed_color
+                           )
         cancel.grid(row=7, column=0, pady=10)
+        cancel.bind('<Enter>', on_hover)
+        cancel.bind('<Leave>', off_hover)
 
-        button = tk.Button(self, text='Submit', command=self.submit)
+        button = tk.Button(self, text='Submit', command=self.submit,
+                           activebackground=button_pressed_color
+                           )
         button.grid(row=7, column=1, pady=10)
+        button.bind('<Enter>', on_hover)
+        button.bind('<Leave>', off_hover)
 
         self.income_var.trace('w', self.create_new_category)
         self.new_cat_exists = 0
@@ -3157,6 +3330,7 @@ class IncomeWindow(tk.Tk):
     def submit(self):
         if self.databaseConnection != None:
             date = self.date_calendar.get()
+            print(date)
             current_income_no = self.databaseConnection.query('select max(income_receipt_no)+1 from income_receipt;')
             current_income_no = current_income_no[0][0]
             notes = self.get_text()
@@ -3184,11 +3358,12 @@ class IncomeWindow(tk.Tk):
                     if self.income_var.get() == '---- New Category ----':
                         self.insert_new_cat()
                         self.income_id = self.current_income_cat_no
+                    else:
+                        self.income_id = self.income_dict[self.income_var.get()]
                     if date == datetime.today().strftime(format="%d/%m/%Y"):
                         date_field = 'now()'
                     else:
-                        date_field = 'str_to_date("{date}","%d/%m/%Y")'
-                    self.income_id = self.income_dict[self.income_var.get()]
+                        date_field = f'str_to_date("{date}","%d/%m/%Y")'
                     try:
                         self.databaseConnection.insert(f'insert into '
                                                        f'income_receipt '
@@ -3222,6 +3397,20 @@ class IncomeWindow(tk.Tk):
     def get_text(self):
         text = self.note.get('1.0', 'end')
         return text
+
+    def insert_new_cat(self):
+        self.current_income_cat_no = self.databaseConnection.query('select '
+                                                       'max(income_id)+1 '
+                                                       'from income;')
+        self.current_income_cat_no = self.current_income_cat_no[0][0]
+        self.databaseConnection.insert(f'insert into '
+                                       f'income '
+                                       f'(income_id, '
+                                       f'income_description) '
+                                       f'values '
+                                       f'({self.current_income_cat_no}, '
+                                       f'"{self.databaseConnection.sanitise(self.new_category_var.get())}");')
+        # self.databaseConnection.commit()
 
 
 class AutoInvoicing(tk.Tk):
@@ -3297,53 +3486,90 @@ class AutoInvoicing(tk.Tk):
         self.membership_entry = tk.Entry(self, textvariable=self.membership_var, width=10)
         self.membership_entry.grid(row=2, column=1, sticky='N')
 
-        self.cancel = tk.Button(self, text='Cancel', command=self.destroy)
+        self.cancel = tk.Button(self, text='Cancel', command=self.destroy,
+                                activebackground = button_pressed_color)
         self.cancel.grid(row=3, column=0, sticky='N', pady=(0,10))
+        self.cancel.bind('<Enter>', on_hover)
+        self.cancel.bind('<Leave>', off_hover)
 
-        self.start_button = tk.Button(self, text='Start', command=self.start)
+        self.start_button = tk.Button(self, text='Start', command=self.start,
+                                      activebackground = button_pressed_color)
         self.start_button.grid(row=3, column=1, sticky='N', pady=(0,10))
+        self.start_button.bind('<Enter>', on_hover)
+        self.start_button.bind('<Leave>', off_hover)
+
 
     @activity_log
     def start(self):
         if self.databaseConnection != None:
-            yesno = messagebox.askyesno('Auto Invoicer', 'This program will produce invoices for all active members.'
-                                                         '\nAre you sure you want to continue?', parent=self)
-            due_date = self.calendar.get()
-            price = self.membership_var.get()
-            invoice_email_list = []
-            if yesno:
-                for member in self.active_members:
-                    invoice_filename = f'{self.current_invoice_no}.pdf'
-                    self.databaseConnection.insert(f'insert into invoice '
-                                                   f'(invoice_no, invoice_date, invoice_duedate,invoice_total, member_no, invoice_sent) values '
-                                                   f'({self.current_invoice_no}, now(), str_to_date("{due_date}","%d/%m/%y"),{price},{member[0]}, "No")')
-                    self.databaseConnection.commit()
-                    self.databaseConnection.insert(f'insert into invoice_line '
-                                                   f'(invoice_no, item_code, item_qty, invoice_item_value) values '
-                                                   f'({self.current_invoice_no}, 1, 1,{price})')
-                    self.databaseConnection.commit()
-                    # self.main_menu.update_tables()
-                    invoice_email_list.append((invoice_filename, member[-1], member[1]))
-                    self.current_invoice_no += 1
-                    invoice = InvoiceGenerator(invoice_filename, price, due_date)
-                    invoice.invoiceNo(f'{self.current_invoice_no}')
-                    invoice.BankDetails(self.bank_details[0], self.bank_details[1], self.bank_details[2])
-                    invoice.memberName(member[1])
-                    invoice.streetAdress(member[2])
-                    invoice.cityStatePostCode(member[3], member[4], member[5])
-                    invoice.invoiceDate(datetime.today().date().strftime('%d/%m/%y'))
-                    invoice.invoice_line([1], ['Annual Membership Renewal Fee'], [price], [1], [price])
-                    invoice.save('.\\config\\invoice_pdfs')
-                self.main_menu.update_tables()
-                email_yesno = messagebox.askyesno('Email Invoices', 'Would you like to send out these invoices via email?',
-                                                  parent=self)
-                if email_yesno:
-                    error = EmailProgress(invoice_email_list, self.databaseConnection, self.main_menu, self.email_address, self.email_password, self.email_host, self.email_port)
-                    if error.get_error_status() == '1':
-                        messagebox.showinfo('Email Invoices', 'All invoices sent out', parent=self.main_menu)
-                self.destroy()
+            self.due_date = self.calendar.get()
+            self.price = self.membership_var.get()
+            if match(r'^-?\d+\.?(\d+)?$', self.price) is None:
+                messagebox.showwarning('Input Error', 'Price must be numeric', parent=self)
+            else:
+                if float(self.price) <= 0:
+                    messagebox.showwarning('Input Error', 'Price must be greater than zero', parent=self)
+                else:
+                    yesno = messagebox.askyesno('Auto Invoicer',
+                                                'This program will produce invoices for all active members.'
+                                                ' Are you sure you want to continue?', parent=self)
+                    self.invoice_email_list = []
+                    if yesno:
+                        for member in self.active_members:
+                            status = self.create_invoice(member)  # return False if aborted
+                            if not status:
+                                break
+                        if status:
+                            self.main_menu.update_tables()
+                            email_yesno = messagebox.askyesno('Email Invoices', 'Would you like to send out these invoices via email?',
+                                                          parent=self)
+                            if email_yesno:
+                                error = EmailProgress(self.invoice_email_list, self.databaseConnection, self.main_menu, self.email_address, self.email_password, self.email_host, self.email_port)
+                                if error.get_error_status() == '1':
+                                    messagebox.showinfo('Email Invoices', 'All invoices sent out', parent=self.main_menu)
+                    self.destroy()
         else:
             not_connected_message(self)
+
+    def create_invoice(self, member):
+        try:
+            invoice_filename = f'{self.current_invoice_no}.pdf'
+            self.databaseConnection.insert(f'insert into invoice '
+                                           f'(invoice_no, invoice_date, invoice_duedate,invoice_total, member_no, invoice_sent) values '
+                                           f'({self.current_invoice_no}, now(), str_to_date("{self.due_date}","%d/%m/%y"),'
+                                           f'{self.price},{member[0]}, "No")')
+            self.databaseConnection.insert(f'insert into invoice_line '
+                                           f'(invoice_no, item_code, item_qty, invoice_item_value) values '
+                                           f'({self.current_invoice_no}, 1, 1,{self.price})')
+            self.invoice_email_list.append((invoice_filename, member[-1], member[1]))
+            self.current_invoice_no += 1
+            invoice = InvoiceGenerator(invoice_filename, self.price, self.due_date)
+            invoice.invoiceNo(f'{self.current_invoice_no}')
+            invoice.BankDetails(self.bank_details[0], self.bank_details[1], self.bank_details[2])
+            invoice.memberName(member[1])
+            invoice.streetAdress(member[2])
+            invoice.cityStatePostCode(member[3], member[4], member[5])
+            invoice.invoiceDate(datetime.today().date().strftime('%d/%m/%y'))
+            invoice.invoice_line([1], ['Annual Membership Renewal Fee'], [self.price], [1], [self.price])
+            invoice.save('.\\config\\invoice_pdfs')
+        except self.databaseConnection.errors.InterfaceError:
+            messagebox.showerror('Connection Lost', 'A connection with the database has been lost', parent=self)
+            return False
+        except Exception as e:
+            self.databaseConnection.rollback()
+            logging.exception(e)
+            response = abortretryignore('Failed creating invoice',
+                                        f'There was an error creating invoice {self.current_invoice_no} for '
+                                        f'{member[0]}', parent=self)
+            if response is None:  # ignore
+                return True
+            elif response:  # retry
+                self.create_invoice(member)
+            else:  # abort
+                return False
+        else:
+            self.databaseConnection.commit()
+            return True
 
 
 class EmailProgress(tk.Tk):
@@ -3356,6 +3582,7 @@ class EmailProgress(tk.Tk):
         self.email_address = email_address
         self.email_password = email_password
         self.email_host = email_host
+        self.title('Sending Invoices')
         self.email_port = email_port
         x = self.winfo_screenwidth()
         y = self.winfo_screenheight()
@@ -3397,11 +3624,13 @@ class EmailProgress(tk.Tk):
                 self.progresser(current_value)
                 self.progress.update()
                 i += 1
-                new_email_str = f'Sending {email[0]} to {email[1]}'
+                # new_email_str = f'Sending {email[0]} to {email[1]}'
+                new_email_str = f'Sending {email[0]} to testName@testmail.com'
                 current_email.configure(text=new_email_str)
                 self.update_idletasks()
                 self.error = '1'
             else:
+                logger.exception(sender.return_error())
                 messagebox.showerror('Email Failed', 'Invoice failed to be sent. '
                                                      'Check email \ncredentials are correct.',
                                      parent=self.main_menu)
@@ -3471,11 +3700,18 @@ class CashTransfers(tk.Tk):
         self.transfer_entry = tk.Entry(self, textvariable=self.transfer_entry_var)
         self.transfer_entry.grid(row=1, column=1, columnspan=2)
 
-        self.left_button = tk.Button(self, text='Cash Out', command=self.left_button)
+        self.left_button = tk.Button(self, text='Cash Out', command=self.left_button,
+                                     activebackground = button_pressed_color)
         self.left_button.grid(row=2, column=1)
+        self.left_button.bind('<Enter>', on_hover)
+        self.left_button.bind('<Leave>', off_hover)
 
-        self.right_button = tk.Button(self, text='Deposit', command=self.right_button)
+
+        self.right_button = tk.Button(self, text='Deposit', command=self.right_button,
+                                      activebackground = button_pressed_color)
         self.right_button.grid(row=2, column=2)
+        self.right_button.bind('<Enter>', on_hover)
+        self.right_button.bind('<Leave>', off_hover)
 
     @activity_log
     def left_button(self):
@@ -3578,11 +3814,18 @@ class ReportPeriod(tk.Tk):
         self.end_calendar = DateEntry(self, date_pattern='dd/mm/yyyy')
         self.end_calendar.grid(row=2, column=1)
 
-        self.cancel = tk.Button(self, text='Cancel', command=self.destroy)
+        self.cancel = tk.Button(self, text='Cancel', command=self.destroy,
+                                activebackground = button_pressed_color)
         self.cancel.grid(row=3, column=0)
+        self.cancel.bind('<Enter>', on_hover)
+        self.cancel.bind('<Leave>', off_hover)
 
-        self.create = tk.Button(self, text='Create Report', command=self.committee_report_print)
+        self.create = tk.Button(self, text='Create Report', command=self.committee_report_print,
+                                activebackground = button_pressed_color)
         self.create.grid(row=3, column=1)
+        self.create.bind('<Enter>', on_hover)
+        self.create.bind('<Leave>', off_hover)
+
 
     @activity_log
     def committee_report_print(self):
@@ -3787,11 +4030,19 @@ class BankDetails(tk.Tk):
         customer_name_entry = tk.Entry(self, textvariable=self.customer_name_var, width=round(self.winfo_screenwidth() * 0.03))
         customer_name_entry.grid(row=4, column=1)
 
-        cancel = tk.Button(self, text='Cancel', width=6, command=self.destroy)
+        cancel = tk.Button(self, text='Cancel', width=6, command=self.destroy,
+                           activebackground=button_pressed_color
+                           )
         cancel.grid(column=0, row=5)
+        cancel.bind('<Enter>', on_hover)
+        cancel.bind('<Leave>', off_hover)
 
-        submit = tk.Button(self, text='Submit', width=6, command=self.bank_detail_submit)
+
+        submit = tk.Button(self, text='Submit', width=6, command=self.bank_detail_submit,
+                           activebackground = button_pressed_color)
         submit.grid(column=1, row=5)
+        submit.bind('<Enter>', on_hover)
+        submit.bind('<Leave>', off_hover)
 
         self.attributes("-topmost", True)
 
@@ -3816,8 +4067,189 @@ class BankDetails(tk.Tk):
                                    f'An unknown error occurred and has been logged. Report to developer.')
         else:
             self.destroy()
-            messagebox.showinfo('Bank Details', 'Bank details successfully updated.', parent=self.main_menu)
+            messagebox.showinfo('Bank Details', 'Bank details successfully updated.')
 
+
+class EditCategories(tk.Tk):
+    def __init__(self, connection, main_menu, *args, **kwargs):
+        self.databaseConnection = connection
+        self.main_menu = main_menu
+        self.report_callback_exception = log_unhandled_exception
+        tk.Tk.__init__(self, *args, **kwargs)
+        self.title('Categories')
+        self.grid_columnconfigure(0, weight=1)
+        self.grid_columnconfigure(1, weight=1)
+        self.grid_rowconfigure(0, weight=1)
+        self.grid_rowconfigure(1, weight=1)
+        self.grid_rowconfigure(2, weight=1)
+        self.grid_rowconfigure(3, weight=1)
+
+        y = self.winfo_screenheight()
+        x = self.winfo_screenwidth()
+
+        a = 400  # width
+        b = 450  # height
+        self.geometry(str(a) +
+                      'x'
+                      + str(b) +
+                      '+'
+                      + str(round((x-a)/2)) +
+                      '+'
+                      + str(round((y-b)/2)))
+
+
+        title_label = tk.Label(self, text='Categories', font='Courier 15 bold')
+        title_label.grid(row=0, columnspan=2)
+
+        type_label = tk.Label(self, text='Type:')
+        type_label.grid(row=1, column=0)
+
+        self.categoryTypes = ['Expense', 'Income', 'Invoice']
+        self.categoryTypeVar = tk.StringVar(self)
+        self.categoryTypeVar.set(self.categoryTypes[0])
+        self.categoryOptions = tk.OptionMenu(self, self.categoryTypeVar, *self.categoryTypes)
+        self.categoryOptions.grid(row=1, column=1)
+
+        self.table = Treeview(self, height=10)
+        self.table.grid(row=2, columnspan=2)
+        self.table["columns"] = ('Description', 'visibility')
+        self.table.column('#0', width=40)
+        self.table.heading('#0', text='ID')
+        self.table.column('Description', width=250)
+        self.table.heading('Description', text='Description')
+        self.table.column('visibility', width=60)
+        self.table.heading('visibility', text='Visibility')
+
+        self.populate_table()
+
+        self.categoryTypeVar.trace('w', self.populate_table)
+        self.table.bind("<Double-1>", self.on_double_click)
+
+        self.open_windows = []
+        self.protocol("WM_DELETE_WINDOW", self.on_closing)
+
+
+    def on_double_click(self, a):
+        type = self.categoryTypeVar.get()
+        item = self.table.selection()
+        desc, visibility = self.table.item(item, 'value')
+        id = self.table.item(item, 'text')
+        EditCategoryRow(self.databaseConnection, (id,desc,visibility, type), self)
+
+
+    def populate_table(self, *args):
+        self.table.delete(*self.table.get_children())  # delete table rows
+        self.expense_categories = self.databaseConnection.query(
+            'select expense_id, expense_description, hidden from expense where expense_id != 1 order by expense_id;')
+        self.income_categories = self.databaseConnection.query(
+            'select income_id, income_description, hidden from income where income_id != 1 order by income_id;')
+        self.invoice_categories = self.databaseConnection.query(
+            'select item_code, item_description, hidden from item order by item_code;')
+        if self.categoryTypeVar.get() == 'Expense':
+            for row in self.expense_categories:
+                desc = self.databaseConnection.sanitise(row[1])
+                hidden = 'Hidden' if row[2] == 1 else 'Visible'
+                self.table.insert("","end", text=row[0], values=[desc, hidden])
+        elif self.categoryTypeVar.get() == 'Income':
+            for row in self.income_categories:
+                desc = self.databaseConnection.sanitise(row[1])
+                hidden = 'Hidden' if row[2] == 1 else 'Visible'
+                self.table.insert('', 'end', text=row[0], values=[desc, hidden])
+        elif self.categoryTypeVar.get() == 'Invoice':
+            for row in self.invoice_categories:
+                desc = self.databaseConnection.sanitise(row[1])
+                hidden = 'Hidden' if row[2] == 1 else 'Visible'
+                self.table.insert('', 'end', text=row[0], values=[desc, hidden])
+
+    def on_closing(self):
+        for window in self.open_windows:
+            window.destroy()
+        self.destroy()
+
+
+class EditCategoryRow(tk.Tk):
+    def __init__(self, connection, row_info, Edit_main_window, *args, **kwargs):
+        self.databaseConnection = connection
+        self.edit_main_window = Edit_main_window
+        self.edit_main_window.open_windows.append(self)
+        self.report_callback_exception = log_unhandled_exception
+        self.row = row_info
+        tk.Tk.__init__(self, *args, **kwargs)
+        self.title('Categories')
+        self.grid_columnconfigure(0, weight=1)
+        self.grid_columnconfigure(1, weight=1)
+        self.grid_columnconfigure(2, weight=1)
+        self.grid_rowconfigure(0, weight=1)
+
+        y = self.winfo_screenheight()
+        x = self.winfo_screenwidth()
+
+        a = 400  # width
+        b = 75  # height
+        self.geometry(str(a) +
+                      'x'
+                      + str(b) +
+                      '+'
+                      + str(round((x - a) / 2)) +
+                      '+'
+                      + str(round((y - b) / 2)))
+
+        self.description_entry_var = tk.StringVar(self)
+        self.description_entry_var.set(self.row[1])
+        description_entry = tk.Entry(self, textvariable=self.description_entry_var)
+        description_entry.grid(row=0, column=0)
+
+        self.visibility_option_var = tk.StringVar(self)
+        self.visibility_option_var.set(self.row[2])
+        visibility_option = tk.OptionMenu(self, self.visibility_option_var, *['Visible', 'Hidden'])
+        visibility_option.grid(row=0, column=1)
+
+        save_button = tk.Button(self, text='Save', command=self.save_row)
+        save_button.grid(row=0, column=2)
+
+        cancel_button = tk.Button(self, text='Cancel', command=self.on_closing)
+        cancel_button.grid(row=0, column=3)
+
+        self.protocol("WM_DELETE_WINDOW", self.on_closing)
+
+    def on_closing(self):
+        self.edit_main_window.open_windows.remove(self)
+        self.destroy()
+
+    def save_row(self):
+        desc = self.description_entry_var.get()
+        visibility = self.visibility_option_var.get()
+        if visibility == 'Visible':
+            hidden = 0
+        else:
+            hidden = 1
+        id = self.row[0]
+        type = self.row[3]
+        if type == 'Expense':
+            table = 'expense'
+            id_column = 'expense_id'
+        elif type == 'Income':
+            table = 'income'
+            id_column = 'income_id'
+        elif type == 'Invoice':
+            table = 'item'
+            id_column = 'item_code'
+        try:
+            self.databaseConnection.insert(f'update {table} set '
+                                           f'{table}_description = "{self.databaseConnection.sanitise(desc)}", '
+                                           f'hidden = "{hidden}" where {id_column} = {id};')
+            self.databaseConnection.commit()
+        except Exception as e:
+            self.databaseConnection.rollback()
+            print('Error Logged')
+            logger.exception(e)
+            messagebox.showwarning('Unknown Error',
+                                   f'An unknown error occurred and has been logged. Report to developer.', parent=self.edit_main_window)
+        else:
+            self.on_closing()
+            self.edit_main_window.populate_table()
+
+        print('save')
 
 
 logger = logging.getLogger(__name__)

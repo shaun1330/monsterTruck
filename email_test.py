@@ -38,10 +38,14 @@ class Emailer:
         except Exception as e:
             print(e)
             self.status = '0'
+            self.error = e
         else:
             self.status = '1'
             server.quit()
 
     def get_status(self):
         return self.status
+
+    def return_error(self):
+        return self.error
 
