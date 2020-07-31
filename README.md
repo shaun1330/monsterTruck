@@ -7,17 +7,53 @@ member details.
 
 ## Features
 
-•	Add/Edit membership details
-•	Export member details to excel spreadsheet
-•	Issue invoices/receipts
-•	Generate invoice/receipt PDFs
-•	View transaction history with rolling account balances
-•	Easily see unpaid invoices on main menu 
-•	View graph of closing balances for all months to see trends 
-•	Record club expense and income with custom categories and notes
-•	Automatically issue membership renewal invoices
-•	Email invoice/receipt PDFs to members through Monster Truck
-•	Generate Treasure's report for desired time period
+*	Add/Edit membership details
+*	Export member details to excel spreadsheet
+*	Issue invoices/receipts
+*	Generate invoice/receipt PDFs
+*	View transaction history with rolling account balances
+*	Easily see unpaid invoices on main menu 
+*	View graph of closing balances for all months to see trends 
+*	Record club expense and income with custom categories and notes
+*	Automatically issue membership renewal invoices
+*	Email invoice/receipt PDFs to members through Monster Truck
+*	Generate Treasure's report for desired time period
+
+## Contents
+
+- [Main Menu](#main-menu)
+- [Members Page](#members-page)
+   - [Add New Member](#add-new-member)
+   - [Edit Member Details](#edit-member-details)
+   - [Export Members information to Excel](#export-members-information-to-excel)
+- [Invoices](#invoices)
+   - [Issue A New Invoice](#issue-a-new-invoice)
+	- [Delete Invoice](#delete-invoice)
+- [Transaction History Table](#transaction-history-table)
+   - [Invoice Transactions](#invoice-transactions)
+      - [Delete Invoice Receipt](#delete-invoice-receipt)
+      - [Refund Invoice Receipt](#refunding-invoice-receipt)
+      - [Send Invoice Receipt](#send-invoice-receipt)
+      - [View Receipt](#view-receipt)
+   - [Income Transactions](#income-transactions)
+      - [Delete Income Record](#delete-income-record)
+   - [Expense Transactions](#expense-transactions)
+      - [Delete Expense Record](#delete-expense-record)
+   - [Deposit Transactions](#deposit-transactions)
+      - [Delete Deposit Record](#delete-deposit-record)
+   - [Cash Out Transactions](#cash-out-transactions)
+      - [Delete Cash Out Record](#delete-cash-out-record)
+   - [Refund Transactions](#refund-transactions)
+      - [Send Refund Receipt](#send-refund-receipt)
+- [Add Expense](#add-expense)
+- [Add Income](#add-income)
+- [Cash Withdrawal And Transfers](#cash-withdrawal-and-transfers)
+- [Auto-Invoicing](#auto-invoicing)
+- [Send Unsent Invoices](#send-unsent-invoices)
+        
+ 
+
+
 
 
 ## Main Menu 
@@ -161,7 +197,7 @@ The expense transaction window shows all the information about the selected club
 
 To delete an expense transaction record, click the ‘Delete’ button. You will be prompted with a message box asking if you are sure you want to delete the record. Click ‘Yes’ to delete. 
 
-## Deposit Transaction
+## Deposit Transactions
 
 ![deposit_transaction_window.png](screenshots/deposit_transaction_window.png)
 
@@ -171,7 +207,7 @@ The deposit transaction window shows all the information about the selected bank
 
 To delete a deposit transaction record, click the ‘Delete’ button. You will be prompted with a message box asking if you are sure you want to delete the record. Click ‘Yes’ to delete. 
 
-## Cash Out Transaction
+## Cash Out Transactions
 
 ![cash_out_transaction_window.png](screenshots/cash_out_transaction_window.png)
 
@@ -181,7 +217,7 @@ The cash out transaction window shows all the information about the selected cas
 
 To delete a cash out transaction record, click the ‘Delete’ button. You will be prompted with a message box asking if you are sure you want to delete the record. Click ‘Yes’ to delete. 
 
-## Refund Transaction
+## Refund Transactions
 
 ![refund_transaction_window.png](screenshots/refund_transaction_window.png)
 
