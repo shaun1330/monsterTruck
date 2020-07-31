@@ -19,4 +19,4 @@ member details.
 #### Main Menu 
 
 
-![Screenshot of Main Menu] (https://github.com/shaun1330/monsterTruck/blob/master/screenshots/main_menu.png)
+![Screenshot of Main Menu](screenshots/main_menu.png)
