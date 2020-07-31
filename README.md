@@ -16,4 +16,7 @@ member details.
 * Automatically issue membership renewal invoices and send to current member's email address
 * Generate Treasure's report for desired time period 
 
+#### Main Menu 
 
+
+![Screenshot of Main Menu] (./screenshots/main_menu.png)
