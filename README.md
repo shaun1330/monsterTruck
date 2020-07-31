@@ -1,12 +1,6 @@
 # Monster Truck
-## Summary
 
-Monster Truck is a GUI/database interface program designed for a local 4wd club. 
-Using tkinter python3 and MySQL, the program handles financial record keeping and 
-member details. 
-
-## Features
-
+Monster Truck is an invoicing and member management program. Through Monster Truck, you can: 
 *	Add/Edit membership details
 *	Export member details to excel spreadsheet
 *	Issue invoices/receipts
@@ -28,7 +22,7 @@ member details.
    - [Export Members information to Excel](#export-members-information-to-excel)
 - [Invoices](#invoices)
    - [Issue A New Invoice](#issue-a-new-invoice)
-	- [Delete Invoice](#delete-invoice)
+   - [Delete Invoice](#delete-invoice)
 - [Transaction History Table](#transaction-history-table)
    - [Invoice Transactions](#invoice-transactions)
       - [Delete Invoice Receipt](#delete-invoice-receipt)
