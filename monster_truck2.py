@@ -16,8 +16,7 @@ from os import startfile
 from re import match
 from database_connection import MydatabaseConnection as myDb
 from email_test import Emailer
-import matplotlib.pyplot as plt
-from matplotlib.ticker import MultipleLocator, AutoMinorLocator
+from matplotlib.ticker import MultipleLocator
 from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
 from matplotlib.figure import Figure
 from openpyxl import Workbook
@@ -66,7 +65,6 @@ def activity_log(func):
     return log_wrapper
 
 
-@activity_log
 def check_if_current(startup=True):
     url = 'http://shaunrsimons.com/updates/current_version.txt'
     r = requests.get(url=url)
