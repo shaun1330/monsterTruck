@@ -1,0 +1,17 @@
+/build
+/config/*
+/venv
+
+/versions/
+
+db_backup.sql
+
+members_list.xlsx
+
+monster_truck2.spec
+
+
+
+.idea/
+
+/__pycache__/
