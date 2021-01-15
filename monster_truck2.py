@@ -1,7 +1,7 @@
 import tkinter as tk
 import requests
 import logging
-from sys import exit
+from sys import exit, platform
 from tkinter.ttk import Treeview, Progressbar, Style
 from invoice_generator_class import InvoiceGenerator
 from receipt_generator_class import ReceiptGenerator
@@ -12,7 +12,10 @@ from dateutil.relativedelta import relativedelta
 import tkinter.font as font
 from tkinter import messagebox
 from tkcalendar import DateEntry
-from os import startfile
+
+if platform == 'win32':
+    from os import startfile
+
 from re import match
 from database_connection import MydatabaseConnection as myDb
 from email_test import Emailer
@@ -21,6 +24,7 @@ from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
 from matplotlib.figure import Figure
 from openpyxl import Workbook
 from json import loads
+from config.settings import *
 
 
 version = 'v2.4.0'
@@ -67,11 +71,11 @@ def activity_log(func):
 
 def check_if_current(startup=True):
     url = 'http://shaunrsimons.com/updates/current_version.txt'
-    r = requests.get(url=url)
-    request_string = loads(r.text)
-    new_version = request_string['version']
-    notes = request_string['notes']
-    if r.status_code == requests.codes.ok:
+    try:
+        r = requests.get(url=url, timeout=1)
+        request_string = loads(r.text)
+        new_version = request_string['version']
+        notes = request_string['notes']
         if new_version != version:
             print(f'{new_version} is available for download.')
             top = tk.Toplevel()
@@ -108,7 +112,7 @@ def check_if_current(startup=True):
                 pass
             else:
                 messagebox.showinfo('Up to date', f'Monster Truck {version} is the most up to date version.')
-    else:
+    except requests.exceptions.ConnectTimeout:
         messagebox.showwarning('Update server offline',
                                'Could not connected to update server. Contact developer or try again later.')
 
@@ -222,10 +226,6 @@ def parse_settings():
     return email_address, email_host, email_port, email_password, database_user, database_password, host, database_name
 
 
-def connect_database(database_user, database_password, host, database_name):
-    databaseConnection = myDb(database_user, database_password, host, database_name)  # initialise db connection
-    return databaseConnection
-
 
 def not_connected_message(window):
     messagebox.showerror('Database Connection', 'Not connected to database. Add databases credentials to settings.txt',
@@ -295,7 +295,7 @@ class App(tk.Tk):
         self.screen_width = self.winfo_screenwidth()
         self.title(f"Monster Truck {version}")
         self.geometry(str(self.winfo_screenwidth())+'x'+str(self.winfo_screenheight()))
-        self.state('zoomed')
+        # self.state('zoomed')
         container = tk.Frame(self)
         container.pack(side="top", fill="both", expand=True)
         container.grid_rowconfigure(0, weight=1)
@@ -4254,25 +4254,48 @@ logger = logging.getLogger(__name__)
 logging.basicConfig(filename='./config/log_file.txt',
                     format='-' * 60 + '\n%(asctime)s - %(name)s - %(levelname)s - %(message)s')
 # logger.setLevel(logging.DEBUG)
-email_address, email_host, email_port, email_password, database_user, database_password, host, database_name = parse_settings()
+# email_address, email_host, email_port, email_password, database_user, database_password, host, database_name = parse_settings()
 
-db_connection_error = 0
-if database_name != '' and database_password != '' and database_user != '' and host != '':
-    try:
-        print(f'Connecting to {database_user}@{host}..................', end='')
-        databaseConnection = connect_database(database_user, database_password, host, database_name)
-    except Exception:
-        print('Unknown connection Issue.')
-        databaseConnection = None
-        db_connection_error = 1
-else:
-    databaseConnection = None
 
-app = App(email_address, email_password, email_host, email_port, connection=databaseConnection, connection_error=db_connection_error)  # initialise app
-print("*"*30)
-print('App loaded')
-app.protocol("WM_DELETE_WINDOW", on_closing)
-app.mainloop()
+
+# db_connection_error = 0
+# if database_name != '' and database_password != '' and database_user != '' and host != '':
+#     try:
+#         print(f'Connecting to {database_user}@{host}..................', end='')
+#         databaseConnection = connect_database()
+#     except Exception:
+#         print('Unknown connection Issue.')
+#         databaseConnection = None
+#         db_connection_error = 1
+# else:
+#     databaseConnection = None
+
+
+
+
+
+import sshtunnel
+
+sshtunnel.SSH_TIMEOUT = 5.0
+sshtunnel.TUNNEL_TIMEOUT = 5.0
+
+print('Opening SSH tunnel...........', end='')
+with sshtunnel.SSHTunnelForwarder(
+        SSH_HOSTNAME,
+        ssh_username=SSH_USERNAME, ssh_password=SSH_PASSWORD,
+        remote_bind_address=(REMOTE_BIND_ADDRESS, 3306)
+) as tunnel:
+    if tunnel.is_alive:
+        print(f'SSH tunnel open. {tunnel.tunnel_is_up}')
+
+
+    db_connection_error = 0
+    databaseConnection = myDb(port=tunnel.local_bind_port)
+    app = App(EMAIL, EMAIL_PASSWORD, EMAIL_HOST, EMAIL_PORT, connection=databaseConnection, connection_error=db_connection_error)  # initialise app
+    print("*"*30)
+    print('App loaded')
+    app.protocol("WM_DELETE_WINDOW", on_closing)
+    app.mainloop()
 
 # db_errors().ProgrammingError ##wrong password, wrong_user, wrong database
 # db_errors().InterfaceError  ## wrong host

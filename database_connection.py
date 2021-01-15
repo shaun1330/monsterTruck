@@ -1,23 +1,30 @@
+
 import mysql.connector
+import pymysql.cursors
+
+
+from config.settings import *
+
 
 class MydatabaseConnection:
-    def __init__(self, user, password, host, database):
-        self.user = user
-        self.host = host
-        self.database = database
-        self.errors = mysql.connector.errors
-        self.db = mysql.connector.connect(
-            user=user,
-            password=password,
-            host=host,
-            database=database,
-            autocommit=False)
-        print(f'Connected to {database}')
-        if self.db.is_connected():
-            self.db_Info = self.db.get_server_info()
-            self.cursor = self.db.cursor()
-        else:
-            raise Exception('Database Connection Failed')
+    def __init__(self, port):
+        self.user = SSH_USERNAME
+        self.host = DB_HOST
+        self.database = DB_NAME
+        # self.errors = mysql.connector.errors
+
+
+        self.db = pymysql.connect(
+            user=SSH_USERNAME,
+            password=DB_PASSWORD,
+            host=DB_HOST,
+            database=DB_NAME,
+            port=port
+            )
+        print(f'Connected to {DB_NAME}')
+
+        self.cursor = self.db.cursor()
+
 
     def query(self, query):
         self.cursor.execute(query)
@@ -30,30 +37,34 @@ class MydatabaseConnection:
     def test(self):
         print('test')
 
-    def reconnect(self):
-        self.db.reset_session()
+    # def reconnect(self):
+    #     self.db.reset_session()
 
     def commit(self):
         self.db.commit()
 
-    def start_transaction(self):
-        self.db.start_transaction()
+    # def start_transaction(self):
+    #     self.db.start_transaction()
 
     def rollback(self):
         self.db.rollback()
 
-    def in_transaction(self):
-        return self.db.in_transaction()
-
+    # def in_transaction(self):
+    #     return self.db.in_transaction()
+    #
     def is_connect(self):
-        return self.db.is_connected()
+        return self.db.open
 
     def sanitise(self, string):
-        return self.db.converter.escape(string)
+        return string
 
 
 # def errors():
 #     errors = mysql.connector.errors
 #     return errors
+
+
+if __name__ == '__main__':
+    db = MydatabaseConnection()
 
 
