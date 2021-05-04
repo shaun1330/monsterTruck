@@ -30,6 +30,34 @@ button_hover_color = '#1946eb'
 button_hover_text_color = 'white'
 
 
+
+import configparser
+
+config = configparser.ConfigParser()
+
+config.read('./config/config.ini')
+
+EMAIL_ADDRESS = config['EMAIL']['ADDRESS']
+EMAIL_PASSWORD = config['EMAIL']['PASSWORD']
+EMAIL_HOST = config['EMAIL']['HOST']
+EMAIL_PORT = config['EMAIL']['PORT']
+
+DATABASE_USER = config['DATABASE']['USER']
+DATEBASE_PASSWORD = config['DATABASE']['PASSWORD']
+DATABASE_HOST = config['DATABASE']['HOST']
+DATABASE_NAME = config['DATABASE']['NAME']
+
+FOLDER = config['APP']['FOLDER_PATH']
+print(FOLDER)
+
+TOKEN = config['OAUTH']['TOKEN']
+
+scope = 'gmail.send'
+redirect_uri = config['OAUTH']['REDIRECT_URIS']
+CLIENT_ID = config['OAUTH']['CLIENT_ID']
+
+
+
 # custom message box for abort retry and ignore when sending emails
 def abortretryignore(title=None, message=None, **options):
     _show = messagebox._show
@@ -326,7 +354,7 @@ class App(tk.Tk):
                                                        'Database credentials are missing. Check settings.txt.')
         elif self.connection != None:
             self.check_database_connection()
-        check_if_current()
+        # check_if_current()
 
     def show_frame(self, page):
         frame = self.frames[page]
@@ -1635,7 +1663,7 @@ class InvoiceWindow(tk.Tk):
                     messagebox.showwarning('Unknown Error',
                                            f'An unknown error occurred and has been logged. Report to developer.')
                 else:
-                    invoice_copy.save('.\\config\\invoice_pdfs')
+                    invoice_copy.save(f'{FOLDER}\\invoice_pdfs')
                     self.main_menu.update_tables()
                     self.destroy()
                     messagebox.showinfo('Invoice Created', 'Invoice successfully created', parent=self.main_menu)
@@ -2463,7 +2491,7 @@ class HistoryWindow(tk.Tk):
     @activity_log
     def view_receipt(self):
         self.attributes("-topmost", False)  # #
-        startfile(f'.\\config\\receipt_pdfs\\R{self.receipt_no}.pdf')
+        startfile(f'{FOLDER}\\receipt_pdfs\\R{self.receipt_no}.pdf')
 
     @activity_log
     def send_receipt(self):
@@ -2478,7 +2506,7 @@ class HistoryWindow(tk.Tk):
                     self.email_address,  # sender
                     self.receipt_data["member_email"],  # receiver
                     self.email_password, self.email_host, self.email_port,  # email password
-                    attachment_path=f'./config/receipt_pdfs/R{self.receipt_no}.pdf', filename=f'R{self.receipt_no}.pdf')  # receipt attachment
+                    attachment_path=f'{FOLDER}/receipt_pdfs/R{self.receipt_no}.pdf', filename=f'R{self.receipt_no}.pdf')  # receipt attachment
             status = sender.get_status()
             if status == '1':
                 self.databaseConnection.insert(
@@ -2507,7 +2535,7 @@ class HistoryWindow(tk.Tk):
                              self.email_address,  # sender
                              self.receipt_data["member_email"],  # receiver
                              self.email_password, self.email_host, self.email_port,  # email password
-                             attachment_path=f'./config/refund_pdfs/{self.receipt_no}.pdf',
+                             attachment_path=f'{FOLDER}/refund_pdfs/{self.receipt_no}.pdf',
                              filename=f'{self.receipt_no}.pdf')  # receipt attachment
             status = sender.get_status()
             if status == '1':
@@ -2590,7 +2618,7 @@ class RefundCashOrTransfer(tk.Tk):
                 if answer:
                     current_refund_no = self.databaseConnection.query(f'select auto_increment from '
                                                                       f'information_schema.tables '
-                                                                      f'where table_schema = "{database_name}" '
+                                                                      f'where table_schema = "{DATABASE_NAME}" '
                                                                       f'and table_name = "refunds";')
                     if selected_refund_type == 'cash':
                         self.cash_refund = self.receipt_data['invoice_total']
@@ -2651,7 +2679,7 @@ class RefundCashOrTransfer(tk.Tk):
 
                     if error == 0:
                         self.databaseConnection.commit()
-                        refund_pdf.save(f'./config/refund_pdfs/')
+                        refund_pdf.save(f'{FOLDER}/refund_pdfs/')
                         self.destroy()
                         self.history_window.destroy()
                         self.main_menu.update_tables()
@@ -2815,7 +2843,7 @@ class Receipt_window(tk.Tk):
                     f' See attached your Greater Western 4x4 Invoice.\n\n'
                     f'Invoice Due Date: {self.invoice_duedate}\n'
                     f'Invoice Total: ${self.invoice_data[2]} ', self.email_address, self.email, self.email_password, self.email_host, self.email_port,
-                             attachment_path=f'./config/invoice_pdfs/{self.invoice_no}.pdf', filename=f'{self.invoice_no}.pdf')
+                             attachment_path=f'{FOLDER}/invoice_pdfs/{self.invoice_no}.pdf', filename=f'{self.invoice_no}.pdf')
             status = sender.get_status()
             print(status)
             if status == '1':
@@ -2851,8 +2879,8 @@ class ReceiptCashOrTransfer(tk.Tk):
         self.receipt_window = receipt_window
         self.email_address = email
         self.email_password = password
-        self.email_host = email_host
-        self.email_port = email_port
+        self.email_host = EMAIL_HOST
+        self.email_port = EMAIL_PORT
         self.main_menu = main_menu
         self.databaseConnection = connection
         self.geometry(str(round(self.winfo_screenwidth() * 0.38)) + 'x' + str(round(self.winfo_screenheight() * 0.18)))
@@ -2995,7 +3023,7 @@ class ReceiptCashOrTransfer(tk.Tk):
                                            f'({self.current_receipt_no}, {self.invoice_no}, {self.cash}, {self.transfer}, str_to_date("{date}","%d/%m/%Y"), "No")')
         self.databaseConnection.commit()
         self.main_menu.update_tables()
-        receipt_gen.save('.\\config\\receipt_pdfs')
+        receipt_gen.save(f'{FOLDER}\\receipt_pdfs')
         print('Success')
 
     @activity_log
@@ -3007,7 +3035,7 @@ class ReceiptCashOrTransfer(tk.Tk):
                 self.email_address,  # sender
                 self.member_email,  # receiver
                 self.email_password, self.email_host, self.email_port,  # email password
-                attachment_path=f'./config/receipt_pdfs/R{self.current_receipt_no}.pdf', filename=f'R{self.current_receipt_no}.pdf')  # receipt attachment
+                attachment_path=f'{FOLDER}/receipt_pdfs/R{self.current_receipt_no}.pdf', filename=f'R{self.current_receipt_no}.pdf')  # receipt attachment
         status = sender.get_status()
         if status == '1':
             self.databaseConnection.insert(
@@ -3549,7 +3577,7 @@ class AutoInvoicing(tk.Tk):
             invoice.cityStatePostCode(member[3], member[4], member[5])
             invoice.invoiceDate(datetime.today().date().strftime('%d/%m/%y'))
             invoice.invoice_line([1], ['Annual Membership Renewal Fee'], [self.price], [1], [self.price])
-            invoice.save('.\\config\\invoice_pdfs')
+            invoice.save(f'{FOLDER}\\invoice_pdfs')
         except self.databaseConnection.errors.InterfaceError:
             messagebox.showerror('Connection Lost', 'A connection with the database has been lost', parent=self)
             return False
@@ -3610,7 +3638,7 @@ class EmailProgress(tk.Tk):
                             password=self.email_password,
                             email_host=self.email_host,
                             email_port=self.email_port,
-                            attachment_path=f'./config/invoice_pdfs/{email[0]}',
+                            attachment_path=f'{FOLDER}/invoice_pdfs/{email[0]}',
                             filename=f'{email[0]}')
             status = sender.get_status()
             if status == '1':
@@ -3834,7 +3862,21 @@ class ReportPeriod(tk.Tk):
             report_start_flip = report_start[6:]+report_start[2:6]+report_start[:2]
             report_end_flip = report_end[6:] + report_end[2:6] + report_end[:2]
 
-            self.balances = self.databaseConnection.query('select @cashSum, @bankSum')
+            # self.balances = self.databaseConnection.query('select @cashSum, @bankSum')
+            self.cash_balance = self.databaseConnection.query(f"""
+                select sum(cash_amount) from payment_history where payment_datetime <= '{report_end_flip}'
+                """)[0][0]
+
+            print(f'committee_cash_balance: {self.cash_balance}')
+
+
+            self.bank_balance = self.databaseConnection.query(f"""
+                select sum(transfer_amount) from payment_history where payment_datetime <= '{report_end_flip}'
+            """)[0][0]
+
+            self.balances = (self.cash_balance, self.bank_balance)
+            print(f'committee_bank_balance: {self.bank_balance}')
+
             report_invoice_incomes = self.databaseConnection.query('select\n'
                                                                   'item_description,  sum(invoice_item_value)\n'
                                                                   ' from \n'
@@ -3871,7 +3913,7 @@ class ReportPeriod(tk.Tk):
                                                           'group by income.income_id;')
             report_incomes = report_invoice_incomes+report_incomes
 
-            year_invoice_incomes = self.databaseConnection.query('select\n'
+            year_invoice_incomes = self.databaseConnection.query(f'select\n'
                                                                   'item_description,  sum(invoice_item_value)\n'
                                                                   ' from \n'
                                                                   ' invoice_receipt \n'
@@ -3890,7 +3932,7 @@ class ReportPeriod(tk.Tk):
                                                                   ' where\n'
                                                                   'payment_datetime between date_format(now() , "%Y-01-01")'
                                                                   'and '
-                                                                  'NOW()\n'
+                                                                  f'"{report_end_flip}"\n'
                                                                   'group by item.item_code;')
             year_incomes = self.databaseConnection.query('select\n'
                                                           'income_description,  '
@@ -3904,7 +3946,7 @@ class ReportPeriod(tk.Tk):
                                                           ' where\n'
                                                           '(payment_datetime between date_format(now() , "%Y-01-01")'
                                                           ' and '
-                                                          'NOW()) and income.income_id != 1 \n'
+                                                          f'"{report_end_flip}") and income.income_id != 1 \n'
                                                           'group by income.income_id;')
             year_incomes = year_invoice_incomes+year_incomes
 
@@ -3934,7 +3976,7 @@ class ReportPeriod(tk.Tk):
                                                           ' where\n'
                                                           'payment_datetime between date_format(now() , "%Y-01-01")'
                                                           ' and '
-                                                          'NOW() and expense.expense_id != 1\n'
+                                                          f'"{report_end_flip}" and expense.expense_id != 1\n'
                                                           'group by expense.expense_id;')
             unpaid_invoices = self.databaseConnection.query('select'
                                                  ' invoice.invoice_no,'
@@ -3952,15 +3994,15 @@ class ReportPeriod(tk.Tk):
 
             report.incomes_list(report_incomes)
             report.expenses_list(report_expense)
-            report.current_balances(self.balances[0])
+            report.current_balances(self.balances)
             report.unpaid_invoices(unpaid_invoices)
             report.year_to_date_summary(year_incomes, year_expense)
             report.draw_image()
-            report.save('./config/committee_reports')
+            report.save(f'{FOLDER}/committee_reports')
             self.destroy()
             view = messagebox.askyesno('Committee Report', 'Committee report was successfully created. Would you like to view it?' , parent=self.main_menu)
             if view:
-                startfile(f'.\\config\\committee_reports\\{report_name}')
+                startfile(f'{FOLDER}\\committee_reports\\{report_name}')
 
         else:
             not_connected_message(self)
@@ -4251,28 +4293,42 @@ class EditCategoryRow(tk.Tk):
 
 
 logger = logging.getLogger(__name__)
-logging.basicConfig(filename='./config/log_file.txt',
+logging.basicConfig(filename=f'{FOLDER}/log_file.txt',
                     format='-' * 60 + '\n%(asctime)s - %(name)s - %(levelname)s - %(message)s')
 # logger.setLevel(logging.DEBUG)
-email_address, email_host, email_port, email_password, database_user, database_password, host, database_name = parse_settings()
 
-db_connection_error = 0
-if database_name != '' and database_password != '' and database_user != '' and host != '':
-    try:
-        print(f'Connecting to {database_user}@{host}..................', end='')
-        databaseConnection = connect_database(database_user, database_password, host, database_name)
-    except Exception:
-        print('Unknown connection Issue.')
-        databaseConnection = None
-        db_connection_error = 1
+import webbrowser
+
+
+if TOKEN == '':
+    url = f'https://accounts.google.com/o/oauth2/v2/auth?scope={scope}&response_type=code&redirect_uri={redirect_uri}&client_id={CLIENT_ID}'
+    webbrowser.open(url)
 else:
-    databaseConnection = None
 
-app = App(email_address, email_password, email_host, email_port, connection=databaseConnection, connection_error=db_connection_error)  # initialise app
-print("*"*30)
-print('App loaded')
-app.protocol("WM_DELETE_WINDOW", on_closing)
-app.mainloop()
 
-# db_errors().ProgrammingError ##wrong password, wrong_user, wrong database
-# db_errors().InterfaceError  ## wrong host
+
+    db_connection_error = 0
+    if DATABASE_NAME != '' and DATEBASE_PASSWORD != '' and DATABASE_USER != '' and DATABASE_HOST != '':
+        try:
+            print(f'Connecting to {DATABASE_USER}@{DATABASE_HOST}..................', end='')
+            databaseConnection = connect_database(DATABASE_USER, DATEBASE_PASSWORD, DATABASE_HOST, DATABASE_NAME)
+        except Exception:
+            print('Unknown connection Issue.')
+            databaseConnection = None
+            db_connection_error = 1
+    else:
+        databaseConnection = None
+
+
+
+
+
+
+    app = App(EMAIL_ADDRESS, EMAIL_PASSWORD, EMAIL_HOST, EMAIL_PORT, connection=databaseConnection, connection_error=db_connection_error)  # initialise app
+    print("*"*30)
+    print('App loaded')
+    app.protocol("WM_DELETE_WINDOW", on_closing)
+    app.mainloop()
+
+    # db_errors().ProgrammingError ##wrong password, wrong_user, wrong database
+    # db_errors().InterfaceError  ## wrong host

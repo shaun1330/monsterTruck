@@ -149,7 +149,7 @@ class CommiteeReportGenerator:
         self.section_break(line=True)
 
     def current_balances(self, balances):
-        self.text(0.1, self.y, 'CURRENT BALANCES', 15, self.font_bold)
+        self.text(0.1, self.y, 'BALANCES AT END OF PERIOD', 15, self.font_bold)
         self.y -= 0.03
         self.text(0.1, self.y, 'Cash Balance:', 12, self.font_bold)
         self.right_text(0.9, self.y, str(balances[0]), 12, self.font)
